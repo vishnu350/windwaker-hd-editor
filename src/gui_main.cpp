@@ -1,4 +1,4 @@
-// gui_main.cpp - Dear ImGui frontend for the cking.sav editor (ImGui 1.86 + GLFW + OpenGL3).
+// gui_main.cpp - Dear ImGui frontend for the cking.sav editor (ImGui 1.93 + GLFW + OpenGL3).
 #include "save_format.h"
 
 #include <cstdarg>
@@ -340,8 +340,13 @@ void draw_changes()
 
 void draw_ui()
 {
-    ImGui::SetNextWindowSize(ImVec2(1120, 760), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Wind Waker HD save editor");
+    // Fill the parent window: the main viewport is the GLFW client area, so this tracks resizes.
+    ImGuiViewport *viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+    const ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    ImGui::Begin("Wind Waker HD save editor", NULL, flags);
 
     ImGui::SetNextItemWidth(360);
     ImGui::InputText("File", g_path, sizeof(g_path));
