@@ -1,7 +1,7 @@
 // Applies one JSON edit object to a save with the reference Node implementation.
 // Usage: node node_apply.mjs <in.sav> <out.sav> '<json: {slot?, edits?, repair?}>'
 import { readFile, writeFile } from "node:fs/promises";
-import { applySlotEdits, repairAllChecksums, updateSlotChecksum } from "../vendor/save-format.js";
+import { applySlotEdits, repairAllChecksums, updateSlotChecksum } from "./save-format.js";
 
 const [inPath, outPath, json] = process.argv.slice(2);
 const bytes = new Uint8Array(await readFile(inPath));

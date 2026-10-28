@@ -11,8 +11,8 @@ BIN     := wwhd-edit
 GUI_BIN := wwhd-gui
 HEADERS := src/save_format.h
 
-# Dear ImGui is vendored under third_party/ and compiled into the GUI, per the upstream guide.
-IMGUI_DIR    := third_party/imgui
+# Dear ImGui is a git submodule in imgui/, compiled into the GUI, per the upstream guide.
+IMGUI_DIR    := imgui
 IMGUI_CXX    := $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp \
                 $(IMGUI_DIR)/imgui_widgets.cpp $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp \
                 $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp

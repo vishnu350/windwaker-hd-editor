@@ -1,5 +1,5 @@
 #!/bin/sh
-# Parity + behaviour checks. Byte-for-byte comparison needs node and vendor/save-format.js.
+# Parity + behaviour checks. Byte-for-byte comparison needs node and tests/save-format.js.
 set -eu
 
 cd "$(dirname "$0")/.."
