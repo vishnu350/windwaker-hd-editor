@@ -3,7 +3,7 @@
 set -eu
 
 cd "$(dirname "$0")/.."
-BIN=./wwhd-edit
+BIN=./wwhd-editor-cli
 SAVE=${SAVE:-cking.sav}
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -216,10 +216,10 @@ gui_run() {
     fi
 }
 
-if [ -x ./wwhd-gui ] && { [ -n "${DISPLAY:-}" ] || command -v xvfb-run >/dev/null 2>&1; };
+if [ -x ./wwhd-editor ] && { [ -n "${DISPLAY:-}" ] || command -v xvfb-run >/dev/null 2>&1; };
 then
     cp "$SAVE" "$TMP/gui_in.sav"
-    WWHD_GUI_FRAMES=3 gui_run ./wwhd-gui "$TMP/gui_in.sav" >"$TMP/gui.log" 2>&1 || true
+    WWHD_GUI_FRAMES=3 gui_run ./wwhd-editor "$TMP/gui_in.sav" >"$TMP/gui.log" 2>&1 || true
     if grep -qE 'Rendered 3 frame\(s\) at [1-9][0-9]*x[1-9][0-9]*' "$TMP/gui.log"; then
         echo "ok       gui renders three frames"
     else
@@ -229,7 +229,7 @@ then
 
     # the widgets mirror the loaded file, so an untouched GUI must save it back byte-identical
     cp "$SAVE" "$TMP/gui_round_in.sav"
-    WWHD_GUI_FRAMES=3 WWHD_GUI_AUTOSAVE="$TMP/gui_out.sav" gui_run ./wwhd-gui \
+    WWHD_GUI_FRAMES=3 WWHD_GUI_AUTOSAVE="$TMP/gui_out.sav" gui_run ./wwhd-editor \
         "$TMP/gui_round_in.sav" >"$TMP/gui_save.log" 2>&1 || true
     if [ -f "$TMP/gui_out.sav" ] && cmp -s "$TMP/gui_out.sav" "$SAVE"; then
         echo "ok       gui round-trips the sample save unchanged"

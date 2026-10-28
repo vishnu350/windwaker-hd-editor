@@ -1,4 +1,4 @@
-wwhd-edit
-wwhd-gui
+wwhd-editor-cli
+wwhd-editor
 build/
 *-modified.sav
