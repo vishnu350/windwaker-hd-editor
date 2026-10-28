@@ -157,23 +157,6 @@ static int add_choice(const char *arg, WwEdits *edits, unsigned flag, const WwFi
     return 0;
 }
 
-static void build_out_path(const char *in_path, char *buf, size_t size)
-{
-    const char *slash = strrchr(in_path, '/');
-    const char *stem = slash ? slash + 1 : in_path;
-    const char *dot = strrchr(stem, '.');
-    size_t stem_len = dot ? (size_t)(dot - stem) : strlen(stem);
-    size_t head = (size_t)(stem - in_path);
-
-    if (head + stem_len + 20 >= size) {
-        snprintf(buf, size, "modified.sav");
-        return;
-    }
-    memcpy(buf, in_path, head);
-    memcpy(buf + head, stem, stem_len);
-    snprintf(buf + head + stem_len, size - head - stem_len, "-modified.sav");
-}
-
 static int same_file(const char *a, const char *b)
 {
     return strcmp(a, b) == 0;
@@ -360,7 +343,7 @@ int main(int argc, char **argv)
     }
 
     if (!o.out_path) {
-        build_out_path(o.path, out_path, sizeof(out_path));
+        ww_default_out_path(o.path, out_path, sizeof(out_path));
         o.out_path = out_path;
     }
     if (same_file(o.out_path, o.path) && !o.force) {

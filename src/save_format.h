@@ -13,6 +13,10 @@
 #define WW_NAME_MAX        8      /* quest-log name length limit */
 #define WW_MAX_FIELDS      32     /* capacity for the field tables below */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     int value;
     const char *label;
@@ -21,7 +25,8 @@ typedef struct {
 typedef struct {
     const char *key;      /* CLI token, matched case/underscore-insensitively */
     const char *label;    /* human-readable name */
-    int offset;           /* offset inside a quest log */
+    int offset;           /* item byte, offset inside a quest log */
+    int get_offset;       /* paired "obtained variants" byte, 0 when the slot has none */
     const WwValue *values;
     int count;
 } WwField;
@@ -48,6 +53,7 @@ typedef struct {
     int bombs;
     int max_bombs;
     int inventory[WW_MAX_FIELDS];  /* parallel to ww_inventory */
+    int inventory_get[WW_MAX_FIELDS];  /* obtained-variant mask, -1 when the slot has none */
     int equipment[WW_MAX_FIELDS];  /* parallel to ww_equipment */
 } WwSlot;
 
@@ -105,5 +111,12 @@ int ww_value_known(const WwField *field, int value);
 const char *ww_value_label(const WwField *field, int value);
 int ww_wallet_capacity(int level);
 void ww_format_hearts(char *buf, size_t size, int quarters);
+
+/* Output path used when the caller does not pick one: <stem>-modified.sav. */
+void ww_default_out_path(const char *in_path, char *buf, size_t size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* WWHD_SAVE_FORMAT_H */

@@ -42,35 +42,43 @@ static const WwValue v_bracelets[] = {{NONE, "None"}, {0x28, "Power Bracelets"}}
 
 #define COUNT(a) ((int)(sizeof(a) / sizeof((a)[0])))
 
+/* Item slots live at 0x3C + n; the obtained mask lives at 0x51 + n and acts as a floor: the game
+ * raises the item byte to the best variant the mask claims, and never removes an item because of
+ * it (measured in-game). So a removal or a downgrade has to lower the mask, or the next in-game
+ * save undoes the edit.
+ *   get_offset 0        -> mask not used by that slot (bottles hold content with a zero mask)
+ *   variant ladder      -> mask is rewritten as (1 << variants) - 1, so downgrades clear top bits
+ *   single item slot    -> only bit 0 is touched, because other bits carry unrelated data (the
+                           telescope mask is 0xA5 in a normal save) */
 const WwField ww_inventory[WW_MAX_FIELDS] = {
-    {"telescope",     "Telescope",      0x3C, v_telescope,   COUNT(v_telescope)},
-    {"sail",          "Sail",           0x3D, v_sail,        COUNT(v_sail)},
-    {"windWaker",     "Wind Waker",     0x3E, v_wind_waker,  COUNT(v_wind_waker)},
-    {"grapplingHook", "Grappling Hook", 0x3F, v_hook,        COUNT(v_hook)},
-    {"spoilsBag",     "Spoils Bag",     0x40, v_spoils,      COUNT(v_spoils)},
-    {"boomerang",     "Boomerang",      0x41, v_boomerang,   COUNT(v_boomerang)},
-    {"dekuLeaf",      "Deku Leaf",      0x42, v_deku_leaf,   COUNT(v_deku_leaf)},
-    {"tingleBottle",  "Tingle Bottle",  0x43, v_tingle,      COUNT(v_tingle)},
-    {"pictobox",      "Picto Box",      0x44, v_pictobox,    COUNT(v_pictobox)},
-    {"ironBoots",     "Iron Boots",     0x45, v_iron_boots,  COUNT(v_iron_boots)},
-    {"magicArmor",    "Magic Armor",    0x46, v_magic_armor, COUNT(v_magic_armor)},
-    {"baitBag",       "Bait Bag",       0x47, v_bait_bag,    COUNT(v_bait_bag)},
-    {"bow",           "Bow",            0x48, v_bow,         COUNT(v_bow)},
-    {"bombs",         "Bombs",          0x49, v_bombs,       COUNT(v_bombs)},
-    {"bottle1",       "Bottle 1",       0x4A, v_bottle,      COUNT(v_bottle)},
-    {"bottle2",       "Bottle 2",       0x4B, v_bottle,      COUNT(v_bottle)},
-    {"bottle3",       "Bottle 3",       0x4C, v_bottle,      COUNT(v_bottle)},
-    {"bottle4",       "Bottle 4",       0x4D, v_bottle,      COUNT(v_bottle)},
-    {"deliveryBag",   "Delivery Bag",   0x4E, v_delivery,    COUNT(v_delivery)},
-    {"hookshot",      "Hookshot",       0x4F, v_hookshot,    COUNT(v_hookshot)},
-    {"skullHammer",   "Skull Hammer",   0x50, v_skull_hammer, COUNT(v_skull_hammer)},
+    {"telescope",     "Telescope",      0x3C, 0x51, v_telescope,   COUNT(v_telescope)},
+    {"sail",          "Sail",           0x3D, 0x52, v_sail,        COUNT(v_sail)},
+    {"windWaker",     "Wind Waker",     0x3E, 0x53, v_wind_waker,  COUNT(v_wind_waker)},
+    {"grapplingHook", "Grappling Hook", 0x3F, 0x54, v_hook,        COUNT(v_hook)},
+    {"spoilsBag",     "Spoils Bag",     0x40, 0x55, v_spoils,      COUNT(v_spoils)},
+    {"boomerang",     "Boomerang",      0x41, 0x56, v_boomerang,   COUNT(v_boomerang)},
+    {"dekuLeaf",      "Deku Leaf",      0x42, 0x57, v_deku_leaf,   COUNT(v_deku_leaf)},
+    {"tingleBottle",  "Tingle Bottle",  0x43, 0x58, v_tingle,      COUNT(v_tingle)},
+    {"pictobox",      "Picto Box",      0x44, 0x59, v_pictobox,    COUNT(v_pictobox)},
+    {"ironBoots",     "Iron Boots",     0x45, 0x5A, v_iron_boots,  COUNT(v_iron_boots)},
+    {"magicArmor",    "Magic Armor",    0x46, 0x5B, v_magic_armor, COUNT(v_magic_armor)},
+    {"baitBag",       "Bait Bag",       0x47, 0x5C, v_bait_bag,    COUNT(v_bait_bag)},
+    {"bow",           "Bow",            0x48, 0x5D, v_bow,         COUNT(v_bow)},
+    {"bombs",         "Bombs",          0x49, 0x5E, v_bombs,       COUNT(v_bombs)},
+    {"bottle1",       "Bottle 1",       0x4A, 0x00, v_bottle,      COUNT(v_bottle)},
+    {"bottle2",       "Bottle 2",       0x4B, 0x00, v_bottle,      COUNT(v_bottle)},
+    {"bottle3",       "Bottle 3",       0x4C, 0x00, v_bottle,      COUNT(v_bottle)},
+    {"bottle4",       "Bottle 4",       0x4D, 0x00, v_bottle,      COUNT(v_bottle)},
+    {"deliveryBag",   "Delivery Bag",   0x4E, 0x63, v_delivery,    COUNT(v_delivery)},
+    {"hookshot",      "Hookshot",       0x4F, 0x64, v_hookshot,    COUNT(v_hookshot)},
+    {"skullHammer",   "Skull Hammer",   0x50, 0x65, v_skull_hammer, COUNT(v_skull_hammer)},
 };
 const int ww_inventory_count = 21;
 
 const WwField ww_equipment[WW_MAX_FIELDS] = {
-    {"sword",     "Sword",           0x0E, v_sword,     COUNT(v_sword)},
-    {"shield",    "Shield",          0x0F, v_shield,    COUNT(v_shield)},
-    {"bracelets", "Power Bracelets", 0x10, v_bracelets, COUNT(v_bracelets)},
+    {"sword",     "Sword",           0x0E, 0x00, v_sword,     COUNT(v_sword)},
+    {"shield",    "Shield",          0x0F, 0x00, v_shield,    COUNT(v_shield)},
+    {"bracelets", "Power Bracelets", 0x10, 0x00, v_bracelets, COUNT(v_bracelets)},
 };
 const int ww_equipment_count = 3;
 
@@ -110,6 +118,23 @@ int ww_wallet_capacity(int level)
 {
     static const int capacities[3] = {200, 1000, 5000};
     return (level >= 0 && level <= 2) ? capacities[level] : 200;
+}
+
+void ww_default_out_path(const char *in_path, char *buf, size_t size)
+{
+    const char *slash = strrchr(in_path, '/');
+    const char *stem = slash ? slash + 1 : in_path;
+    const char *dot = strrchr(stem, '.');
+    size_t stem_len = dot ? (size_t)(dot - stem) : strlen(stem);
+    size_t head = (size_t)(stem - in_path);
+
+    if (head + stem_len + 20 >= size) {
+        snprintf(buf, size, "modified.sav");
+        return;
+    }
+    memcpy(buf, in_path, head);
+    memcpy(buf + head, stem, stem_len);
+    snprintf(buf + head + stem_len, size - head - stem_len, "-modified.sav");
 }
 
 /* Quarter-heart units render as 7 or 3.75, matching the web editor. */
@@ -185,6 +210,25 @@ const char *ww_value_label(const WwField *field, int value)
     }
     snprintf(unknown, sizeof(unknown), "Unknown 0x%02X", value & 0xFF);
     return unknown;
+}
+
+/* Position of a value in the table: 0 = none, 1 = base item, 2 = second variant, and so on. */
+static int variant_index(const WwField *field, int value)
+{
+    int i;
+
+    for (i = 0; i < field->count; i++) {
+        if (field->values[i].value == value) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Owning variant n means every variant at or below it is owned: none 0, base 1, swift 3, light 7. */
+static int variant_mask(int index)
+{
+    return index <= 0 ? 0 : (1 << index) - 1;
 }
 
 /* Slot checksum: running sum of the slot body plus the sum of its complement. */
@@ -289,6 +333,8 @@ void ww_read_slot(const uint8_t *bytes, int slot, WwSlot *out)
     out->max_bombs = bytes[base + 0x70];
     for (i = 0; i < ww_inventory_count; i++) {
         out->inventory[i] = bytes[base + (size_t)ww_inventory[i].offset];
+        out->inventory_get[i] = ww_inventory[i].get_offset
+            ? bytes[base + (size_t)ww_inventory[i].get_offset] : -1;
     }
     for (i = 0; i < ww_equipment_count; i++) {
         out->equipment[i] = bytes[base + (size_t)ww_equipment[i].offset];
@@ -374,16 +420,27 @@ static int check_int(int value, int min, int max, const char *label, char *err, 
 static int apply_choice(uint8_t *bytes, int slot, const WwField *field, int value,
                         char *err, size_t err_size)
 {
-    size_t at = (size_t)slot * WW_SLOT_SIZE + (size_t)field->offset;
+    size_t base = (size_t)slot * WW_SLOT_SIZE;
+    size_t at = base + (size_t)field->offset;
+    int index = variant_index(field, value);
 
     if (check_int(value, 0, 255, field->label, err, err_size) != 0) {
         return -1;
     }
-    if (!ww_value_known(field, value) && value != bytes[at]) {
+    if (index < 0 && value != bytes[at]) {
         snprintf(err, err_size, "Unsupported value for %s.", field->label);
         return -1;
     }
     bytes[at] = (uint8_t)value;
+    if (field->get_offset != 0 && index >= 0) {
+        size_t mask_at = base + (size_t)field->get_offset;
+
+        if (field->count > 2) {
+            bytes[mask_at] = (uint8_t)variant_mask(index);
+        } else {
+            bytes[mask_at] = (uint8_t)((bytes[mask_at] & ~0x01u) | (index > 0 ? 1u : 0u));
+        }
+    }
     return 0;
 }
 
@@ -531,6 +588,28 @@ int ww_write(const char *path, const uint8_t *bytes, char *err, size_t err_size)
     return 0;
 }
 
+/* The game treats the mask as a floor, so a mask above the item byte is a silent edit waiting to
+ * be undone. Returns the item the game would restore, or NULL when the two agree. */
+static const char *mask_conflict(const WwField *field, int item_value, int mask)
+{
+    int best = 0;
+    int current = variant_index(field, item_value);
+    int bit;
+
+    if (field->get_offset == 0 || mask < 0 || current < 0) {
+        return NULL;
+    }
+    for (bit = 0; bit < 8; bit++) {
+        if (mask & (1 << bit)) {
+            best = bit + 1;
+        }
+    }
+    if (field->count <= 2 && mask != 0 && (mask & ~0x01) != 0) {
+        return NULL;  /* other bits carry unrelated data, so the mask says nothing here */
+    }
+    return best > current ? field->values[best].label : NULL;
+}
+
 void ww_print_slots(FILE *out, const uint8_t *bytes)
 {
     int slot;
@@ -558,8 +637,20 @@ void ww_print_slots(FILE *out, const uint8_t *bytes)
                     ww_value_label(&ww_equipment[i], s.equipment[i]));
         }
         for (i = 0; i < ww_inventory_count; i++) {
-            fprintf(out, "  %-16s %s\n", ww_inventory[i].label,
-                    ww_value_label(&ww_inventory[i], s.inventory[i]));
+            const char *conflict;
+
+            if (ww_inventory[i].count > 2 && s.inventory_get[i] >= 0) {
+                fprintf(out, "  %-16s %s  (owned mask 0x%02X)\n", ww_inventory[i].label,
+                        ww_value_label(&ww_inventory[i], s.inventory[i]), s.inventory_get[i]);
+            } else {
+                fprintf(out, "  %-16s %s\n", ww_inventory[i].label,
+                        ww_value_label(&ww_inventory[i], s.inventory[i]));
+            }
+            conflict = mask_conflict(&ww_inventory[i], s.inventory[i], s.inventory_get[i]);
+            if (conflict) {
+                fprintf(out, "  %-16s   ! mask still claims %s; the game restores it\n",
+                        "", conflict);
+            }
         }
         if (slot + 1 < WW_SLOT_COUNT) {
             fprintf(out, "\n");
@@ -637,6 +728,13 @@ void ww_print_diff(FILE *out, const uint8_t *original, const uint8_t *modified)
             shown += report(out, ww_inventory[i].label,
                             ww_value_label(&ww_inventory[i], a.inventory[i]),
                             ww_value_label(&ww_inventory[i], b.inventory[i]));
+            if (a.inventory_get[i] >= 0 && a.inventory_get[i] != b.inventory_get[i]) {
+                char label[64];
+                snprintf(label, sizeof(label), "%s owned", ww_inventory[i].label);
+                snprintf(before, sizeof(before), "0x%02X", a.inventory_get[i]);
+                snprintf(after, sizeof(after), "0x%02X", b.inventory_get[i]);
+                shown += report(out, label, before, after);
+            }
         }
         for (i = 0; i < ww_equipment_count; i++) {
             shown += report(out, ww_equipment[i].label,
