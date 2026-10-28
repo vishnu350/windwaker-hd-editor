@@ -1,27 +1,63 @@
 CC      ?= cc
 CFLAGS  ?= -O2 -Wall -Wextra -Wpedantic -std=c99
+CXX     ?= g++
+CXXFLAGS ?= -O2 -Wall -Wextra -std=c++11
 CPPFLAGS += -D_POSIX_C_SOURCE=200809L
 LDLIBS  ?= -lm
 
 SRC_DIR := src
 OBJ_DIR := build
 BIN     := wwhd-edit
-SRCS    := $(SRC_DIR)/main.c $(SRC_DIR)/save_format.c
-OBJS    := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
-HEADERS := $(SRC_DIR)/save_format.h
+GUI_BIN := wwhd-gui
+HEADERS := src/save_format.h
 
-.PHONY: all clean test info help
+# Dear ImGui is vendored under third_party/ and compiled into the GUI, per the upstream guide.
+IMGUI_DIR    := third_party/imgui
+IMGUI_CXX    := $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp \
+                $(IMGUI_DIR)/imgui_widgets.cpp $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp \
+                $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
+IMGUI_OBJS   := $(notdir $(IMGUI_CXX:.cpp=.o))
+IMGUI_OBJS   := $(addprefix $(OBJ_DIR)/,$(IMGUI_OBJS))
+IMGUI_INC    := -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
+
+# The GUI needs GLFW and GL headers: apt-get install libglfw3-dev libgl1-mesa-dev
+GLFW_OK := $(shell pkg-config --exists glfw3 2>/dev/null && echo yes)
+GLFW_LIBS := $(shell pkg-config --libs glfw3 2>/dev/null)
 
 all: $(BIN)
+ifeq ($(GLFW_OK),yes)
+all: $(GUI_BIN)
+endif
 
-$(BIN): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
+$(BIN): $(OBJ_DIR)/main.o $(OBJ_DIR)/save_format.o
+	$(CC) $(CFLAGS) -o $@ $(OBJ_DIR)/main.o $(OBJ_DIR)/save_format.o $(LDLIBS)
+
+$(GUI_BIN): $(OBJ_DIR)/gui_main.o $(OBJ_DIR)/save_format.o $(IMGUI_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LIBS) -lGL -ldl $(LDLIBS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS) | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
+$(OBJ_DIR)/gui_main.o: $(SRC_DIR)/gui_main.cpp $(HEADERS) | $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(IMGUI_INC) -c -o $@ $<
+
+$(OBJ_DIR)/%.o: $(IMGUI_DIR)/%.cpp | $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(IMGUI_INC) -c -o $@ $<
+
+$(OBJ_DIR)/%.o: $(IMGUI_DIR)/backends/%.cpp | $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(IMGUI_INC) -c -o $@ $<
+
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
+
+gui:
+ifeq ($(GLFW_OK),yes)
+gui: $(GUI_BIN)
+else
+	@echo "Missing libraries for the ImGui frontend. Install them with:"
+	@echo "  apt-get install -y libglfw3-dev libgl1-mesa-dev"
+	@exit 1
+endif
 
 test: $(BIN)
 	sh tests/parity.sh
@@ -29,8 +65,8 @@ test: $(BIN)
 info: $(BIN)
 	./$(BIN) --info cking.sav
 
-help:
+help: $(BIN)
 	./$(BIN) --help
 
 clean:
-	rm -rf $(OBJ_DIR) $(BIN)
+	rm -rf $(OBJ_DIR) $(BIN) $(GUI_BIN)
