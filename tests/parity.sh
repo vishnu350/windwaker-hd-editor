@@ -142,6 +142,106 @@ else
     echo "ok       refuses to overwrite an existing output file"
 fi
 
+# The game re-derives variant items from the obtained mask at 0x51 + slot, so writes must keep it.
+byte_at() { od -An -tu1 -j"$2" -N1 "$1" | tr -d ' \n'; }
+
+expect_byte() {
+    name=$1
+    file=$2
+    offset=$3
+    want=$4
+    got=$(byte_at "$file" "$offset")
+    if [ "$got" = "$want" ]; then
+        echo "ok       $name"
+    else
+        echo "FAIL     $name (offset $offset: expected $want, got $got)"
+        fail=1
+    fi
+}
+
+cp "$SAVE" "$TMP/v1.sav"
+"$BIN" --item sail=0x78 "$TMP/v1.sav" --out "$TMP/v1_out.sav" --yes >/dev/null
+expect_byte "sail downgrade writes 0x78" "$TMP/v1_out.sav" 61 120
+expect_byte "sail downgrade clears the swift bit" "$TMP/v1_out.sav" 82 1
+
+"$BIN" --item sail=0xFF "$TMP/v1.sav" --out "$TMP/v1_none.sav" --yes >/dev/null
+expect_byte "removing the sail clears the item byte" "$TMP/v1_none.sav" 61 255
+expect_byte "removing the sail clears the owned mask" "$TMP/v1_none.sav" 82 0
+
+"$BIN" --item bow=0x36 "$TMP/v1.sav" --out "$TMP/v1_bow.sav" --yes >/dev/null
+expect_byte "light arrows set the bow item" "$TMP/v1_bow.sav" 72 54
+expect_byte "light arrows set the bow owned mask" "$TMP/v1_bow.sav" 93 7
+
+"$BIN" --item pictobox=0x26 "$TMP/v1.sav" --out "$TMP/v1_picto.sav" --yes >/dev/null
+expect_byte "deluxe picto box owned mask" "$TMP/v1_picto.sav" 89 3
+
+# single-item slots: bit 0 of the mask keeps the item alive, the other bits must survive
+"$BIN" --item baitbag=0xFF "$TMP/v1.sav" --out "$TMP/v1_drop.sav" --yes >/dev/null
+expect_byte "removing the bait bag clears the item byte" "$TMP/v1_drop.sav" 71 255
+expect_byte "removing the bait bag clears its mask bit" "$TMP/v1_drop.sav" 92 0
+"$BIN" --item hookshot=0x2F "$TMP/v1.sav" --out "$TMP/v1_hook.sav" --yes >/dev/null
+expect_byte "hookshot grant writes the item byte" "$TMP/v1_hook.sav" 79 47
+expect_byte "hookshot grant sets mask bit 0" "$TMP/v1_hook.sav" 100 1
+"$BIN" --item telescope=0xFF "$TMP/v1.sav" --out "$TMP/v1_tele.sav" --yes >/dev/null
+expect_byte "telescope removal keeps the unrelated mask bits" "$TMP/v1_tele.sav" 81 164
+"$BIN" --item bottle3=0x50 "$TMP/v1.sav" --out "$TMP/v1_bot.sav" --yes >/dev/null
+expect_byte "bottle contents are written" "$TMP/v1_bot.sav" 76 80
+expect_byte "bottle mask stays untouched" "$TMP/v1_bot.sav" 96 0
+
+# a save written by the old editor (item byte downgraded, mask untouched) must be flagged
+if command -v python3 >/dev/null 2>&1; then
+    cp "$SAVE" "$TMP/stale.sav"
+    python3 -c 'import sys;p=sys.argv[1];b=bytearray(open(p,"rb").read());b[0x3d]=0x78;open(p,"wb").write(b)' "$TMP/stale.sav"
+    "$BIN" --repair "$TMP/stale.sav" --out "$TMP/stale_fixed.sav" --yes >/dev/null
+    if "$BIN" --info "$TMP/stale_fixed.sav" | grep -q 'mask still claims Swift Sail'; then
+        echo "ok       warns when the mask contradicts the item byte"
+    else
+        echo "FAIL     no warning for a contradictory mask"
+        fail=1
+    fi
+    if "$BIN" --info "$TMP/v1_out.sav" | grep -q 'mask still claims'; then
+        echo "FAIL     warning shown for a consistent save"
+        fail=1
+    else
+        echo "ok       no warning after a correct downgrade"
+    fi
+fi
+
+# GUI checks. xvfb-run's default 8-bit screen leaves ImGui with a 0x0 display, so ask for 24-bit.
+gui_run() {
+    if [ -n "${DISPLAY:-}" ]; then
+        "$@"
+    else
+        xvfb-run -a -s "-screen 0 1280x800x24" "$@"
+    fi
+}
+
+if [ -x ./wwhd-gui ] && { [ -n "${DISPLAY:-}" ] || command -v xvfb-run >/dev/null 2>&1; };
+then
+    cp "$SAVE" "$TMP/gui_in.sav"
+    WWHD_GUI_FRAMES=3 gui_run ./wwhd-gui "$TMP/gui_in.sav" >"$TMP/gui.log" 2>&1 || true
+    if grep -qE 'Rendered 3 frame\(s\) at [1-9][0-9]*x[1-9][0-9]*' "$TMP/gui.log"; then
+        echo "ok       gui renders three frames"
+    else
+        echo "FAIL     gui did not render: $(tail -3 "$TMP/gui.log" | tr '\n' ' ')"
+        fail=1
+    fi
+
+    # the widgets mirror the loaded file, so an untouched GUI must save it back byte-identical
+    cp "$SAVE" "$TMP/gui_round_in.sav"
+    WWHD_GUI_FRAMES=3 WWHD_GUI_AUTOSAVE="$TMP/gui_out.sav" gui_run ./wwhd-gui \
+        "$TMP/gui_round_in.sav" >"$TMP/gui_save.log" 2>&1 || true
+    if [ -f "$TMP/gui_out.sav" ] && cmp -s "$TMP/gui_out.sav" "$SAVE"; then
+        echo "ok       gui round-trips the sample save unchanged"
+    else
+        echo "FAIL     gui output differs from the save it loaded: \
+$(cmp -l "$TMP/gui_out.sav" "$SAVE" 2>&1 | head -2 | tr '\n' ' ')"
+        fail=1
+    fi
+else
+    echo "skip     gui tests (no display, no xvfb-run)"
+fi
+
 if [ "$save_digest_before" != "$(cksum "$SAVE")" ]; then
     echo "FAIL     sample save under test was modified"
     fail=1
