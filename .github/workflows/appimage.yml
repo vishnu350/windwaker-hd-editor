@@ -68,7 +68,7 @@ jobs:
             -v "$PWD:/build" -w /build \
             -e GITHUB_REPOSITORY="${{ github.repository }}" \
             ${{ matrix.image }} \
-            /bin/sh -c "sh appimage/get-dependencies.sh && git submodule update --init && make && sh appimage/make-appimage.sh ${{ matrix.arch }} ${{ github.event.inputs.tag }}"
+            /bin/sh -c "sh appimage/get-dependencies.sh && git config --global --add safe.directory /build && git submodule update --init && make && sh appimage/make-appimage.sh ${{ matrix.arch }} ${{ github.event.inputs.tag }}"
       - name: Upload artifact
         if: ${{ !matrix.qemu || github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
