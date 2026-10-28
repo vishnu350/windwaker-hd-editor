@@ -300,7 +300,7 @@ void draw_fields(int slot)
     ImGui::SetNextItemWidth(-175);  // leave room for the label
     ImGui::InputInt("Max arrows", &u.max_arrows);
     ImGui::SetNextItemWidth(-175);  // leave room for the label
-    ImGui::InputInt("Bombs", &u.bombs);
+    ImGui::InputInt("Bombs##count", &u.bombs);  // ## keeps the ID distinct from the Bombs inventory combo
     ImGui::SetNextItemWidth(-175);  // leave room for the label
     ImGui::InputInt("Max bombs", &u.max_bombs);
 
