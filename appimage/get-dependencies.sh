@@ -54,6 +54,6 @@ wget -q -O /usr/local/bin/get-debloated-pkgs \
 chmod a+x /usr/local/bin/get-debloated-pkgs
 
 # Installs a debloated MESA, Vulkan, Qt, GTK, libicudata, and more
-./get-debloated-pkgs.sh --add-mesa --prefer-nano
+get-debloated-pkgs --add-mesa --prefer-nano
 
 echo "CONTAINER IS READY!"
