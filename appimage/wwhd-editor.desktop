@@ -8,5 +8,4 @@ Categories=System;
 Terminal=false
 StartupNotify=false
 Keywords=games;terminal;
-#StartupWMClass=wwhd-editor
-
+StartupWMClass=wwhd-editor
