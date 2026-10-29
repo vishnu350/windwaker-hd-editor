@@ -6,8 +6,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <algorithm>
 #include <string>
 #include <vector>
+
+// POSIX only, like open_memstream() below: the file browser lists directories with dirent/stat.
+#include <dirent.h>
+#include <strings.h>  // strcasecmp for the case-insensitive listing
+#include <sys/stat.h>
+#include <unistd.h>   // getcwd for paths that do not exist yet
 
 #ifndef GLFW_INCLUDE_NONE  // the Makefile sets this too: glfw3.h must not include <GL/gl.h>, the
 #define GLFW_INCLUDE_NONE  // GL entry points come from the loader vendored with the ImGui backend
@@ -452,6 +459,302 @@ void toolbar_same_line(const char *label)
     }
 }
 
+// ---- File browser -------------------------------------------------------------
+// ImGui ships no file dialog, so this is a small directory list over dirent, shared by the File
+// and the Save as row; only the buffer it writes into differs.
+
+struct FileEntry {
+    std::string name;
+    bool is_dir;
+};
+
+struct FileBrowser {
+    bool for_load = false;                // true: fills File and loads, false: fills Save as
+    char dir[512] = "";                   // absolute directory currently listed
+    char name[256] = "";                  // selected or typed file name
+    bool show_hidden = false;
+    bool scroll_to_selected = false;
+    int selected = -1;
+    std::vector<FileEntry> entries;
+};
+
+FileBrowser g_browser;
+
+std::string path_directory(const char *path)
+{
+    const char *slash = strrchr(path, '/');
+
+    if (slash == NULL) {
+        return std::string(".");
+    }
+    if (slash == path) {
+        return std::string("/");  // "/foo" lives in "/"
+    }
+    return std::string(path, (size_t)(slash - path));
+}
+
+std::string path_basename(const char *path)
+{
+    const char *slash = strrchr(path, '/');
+
+    return std::string(slash != NULL ? slash + 1 : path);
+}
+
+std::string path_join(const std::string &dir, const std::string &name)
+{
+    if (dir.empty() || dir == "/") {
+        return dir + name;
+    }
+    return dir + "/" + name;
+}
+
+// Absolute form of a path that may not exist yet: realpath where it resolves, cwd otherwise.
+std::string path_absolute(const std::string &path)
+{
+    char resolved[4096];
+    char cwd[4096];
+
+    if (realpath(path.c_str(), resolved) != NULL) {
+        return std::string(resolved);
+    }
+    if (!path.empty() && path[0] == '/') {
+        return path;
+    }
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        return path;
+    }
+    return path_join(std::string(cwd), path);
+}
+
+bool path_is_dir(const std::string &path)
+{
+    struct stat info;
+
+    return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+}
+
+bool path_exists(const std::string &path)
+{
+    struct stat info;
+
+    return stat(path.c_str(), &info) == 0;
+}
+
+// Re-reads the current directory: parent entry first, then folders, then files by name.
+void browser_scan()
+{
+    g_browser.entries.clear();
+    g_browser.selected = -1;
+
+    DIR *handle = opendir(g_browser.dir);
+    if (handle == NULL) {
+        set_status(true, "Cannot open directory %s.", g_browser.dir);
+        return;
+    }
+    if (strcmp(g_browser.dir, "/") != 0) {
+        FileEntry parent;
+
+        parent.name = "..";
+        parent.is_dir = true;
+        g_browser.entries.push_back(parent);
+    }
+    for (dirent *item = readdir(handle); item != NULL; item = readdir(handle)) {
+        const char *entry = item->d_name;
+        struct stat info;
+
+        if (strcmp(entry, ".") == 0 || strcmp(entry, "..") == 0) {
+            continue;
+        }
+        if (entry[0] == '.' && !g_browser.show_hidden) {
+            continue;
+        }
+        if (stat(path_join(g_browser.dir, entry).c_str(), &info) != 0) {
+            continue;  // dangling symlink, or it vanished while we were listing
+        }
+        FileEntry item_entry;
+
+        item_entry.name = entry;
+        item_entry.is_dir = S_ISDIR(info.st_mode) != 0;
+        g_browser.entries.push_back(item_entry);
+    }
+    closedir(handle);
+
+    std::sort(g_browser.entries.begin(), g_browser.entries.end(),
+              [](const FileEntry &a, const FileEntry &b) {
+                  if (a.name == "..") {
+                      return true;
+                  }
+                  if (b.name == "..") {
+                      return false;
+                  }
+                  if (a.is_dir != b.is_dir) {
+                      return a.is_dir;
+                  }
+                  return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
+              });
+}
+
+void browser_goto(const std::string &path)
+{
+    std::string full = path_absolute(path);
+
+    snprintf(g_browser.dir, sizeof(g_browser.dir), "%s", full.c_str());
+    browser_scan();
+}
+
+// Starts in the home directory, which is where extracted saves usually land; only an absolute path
+// already in the field moves the dialog elsewhere. A trailing slash means a directory.
+void browser_open(bool for_load)
+{
+    const char *home = getenv("HOME");
+    std::string target = (for_load ? g_path : g_out);
+    std::string dir;
+
+    while (target.size() > 1 && target[target.size() - 1] == '/') {
+        target.pop_back();
+    }
+    g_browser.for_load = for_load;
+    g_browser.scroll_to_selected = true;
+    g_browser.name[0] = '\0';
+    if (path_is_dir(target)) {
+        dir = target;
+    } else if (!target.empty() && target[0] == '/' && path_exists(path_directory(target.c_str()))) {
+        dir = path_directory(target.c_str());
+        snprintf(g_browser.name, sizeof(g_browser.name), "%s", path_basename(target.c_str()).c_str());
+    } else {
+        dir = (home != NULL && home[0] != '\0') ? std::string(home) : std::string("/");
+    }
+    browser_goto(dir);
+    ImGui::OpenPopup("Browse for save file##filebrowser");
+}
+
+// Writes the picked path back into the field that opened the dialog; loading stays inside it so a
+// rejected file can be swapped for another one.
+void browser_accept()
+{
+    std::string full;
+
+    if (g_browser.name[0] == '\0') {
+        set_status(true, "Select a file first.");
+        return;
+    }
+    full = path_join(g_browser.dir, g_browser.name);
+    if (g_browser.for_load) {
+        snprintf(g_path, sizeof(g_path), "%s", full.c_str());
+        if (!load_file()) {
+            return;
+        }
+    } else {
+        if (path_is_dir(full)) {
+            set_status(true, "%s is a directory, not a save file.", full.c_str());
+            return;
+        }
+        snprintf(g_out, sizeof(g_out), "%s", full.c_str());
+        set_status(false, "Save-as target set to %s.", g_out);
+    }
+    ImGui::CloseCurrentPopup();
+}
+
+void browser_draw()
+{
+    const ImGuiStyle &style = ImGui::GetStyle();
+    const char *accept_label = g_browser.for_load ? "Open" : "Choose";
+    const float button = 2.0f * style.FramePadding.x;
+    const float nav_w = (ImGui::CalcTextSize("Go").x + button) + (ImGui::CalcTextSize("Up").x + button)
+                        + (ImGui::CalcTextSize("Home").x + button) + 3.0f * style.ItemSpacing.x;
+    const float accept_w = (ImGui::CalcTextSize(accept_label).x + button)
+                           + (ImGui::CalcTextSize("Cancel").x + button) + 2.0f * style.ItemSpacing.x;
+    std::string target;
+
+    ImGui::SetNextWindowSize(ImVec2(620.0f * g_ui_scale, 390.0f * g_ui_scale), ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing,
+                            ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("Browse for save file##filebrowser", NULL)) {
+        return;
+    }
+
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - nav_w);
+    ImGui::InputText("##dir", g_browser.dir, sizeof(g_browser.dir));
+    ImGui::SameLine();
+    if (ImGui::Button("Go")) {
+        browser_goto(g_browser.dir);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Up")) {
+        browser_goto(path_directory(g_browser.dir));
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Home")) {
+        const char *home = getenv("HOME");
+
+        browser_goto((home != NULL && home[0] != '\0') ? home : "/");
+    }
+    if (ImGui::Checkbox("Show hidden files", &g_browser.show_hidden)) {
+        browser_scan();
+    }
+
+    ImGui::BeginChild("Files", ImVec2(0.0f, 250.0f * g_ui_scale), ImGuiChildFlags_Borders);
+    for (size_t i = 0; i < g_browser.entries.size(); i++) {
+        const FileEntry &entry = g_browser.entries[i];
+        std::string label = entry.is_dir ? entry.name + "/" : entry.name;
+        bool is_selected = (g_browser.selected == (int)i);
+
+        if (entry.is_dir) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.65f, 0.85f, 1.00f, 1.00f));
+        }
+        if (ImGui::Selectable(label.c_str(), is_selected)) {
+            g_browser.selected = (int)i;
+            if (!entry.is_dir) {
+                snprintf(g_browser.name, sizeof(g_browser.name), "%s", entry.name.c_str());
+            }
+        }
+        if (entry.is_dir) {
+            ImGui::PopStyleColor();
+        }
+        if (is_selected && g_browser.scroll_to_selected) {
+            ImGui::SetScrollHereY(0.5f);
+            g_browser.scroll_to_selected = false;
+        }
+        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            if (entry.is_dir) {
+                browser_goto(path_join(g_browser.dir, entry.name));
+            } else {
+                snprintf(g_browser.name, sizeof(g_browser.name), "%s", entry.name.c_str());
+                browser_accept();
+                break;  // the dialog is closing, stop drawing the rest of the list
+            }
+        }
+    }
+    if (g_browser.entries.empty()) {
+        ImGui::TextDisabled("(no readable entries here)");
+    }
+    ImGui::EndChild();
+
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - accept_w);
+    ImGui::InputText("##name", g_browser.name, sizeof(g_browser.name));
+    bool pressed_enter = ImGui::IsItemActive() && ImGui::IsKeyPressed(ImGuiKey_Enter);
+    ImGui::SameLine();
+    if (ImGui::Button(accept_label) || pressed_enter) {
+        browser_accept();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel")) {
+        ImGui::CloseCurrentPopup();
+    }
+
+    target = path_join(g_browser.dir, g_browser.name);
+    if (!g_browser.for_load && g_browser.name[0] != '\0' && path_exists(target)) {
+        ImGui::TextDisabled("Target already exists - choosing it overwrites the file.");
+    }
+    if (g_status_bad) {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.3f, 1.0f), "%s", g_status);
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape) && !ImGui::GetIO().WantTextInput) {
+        ImGui::CloseCurrentPopup();  // modals are exempt from ImGui's own Escape handling
+    }
+    ImGui::EndPopup();
+}
+
 void draw_fields(int slot)
 {
     UiSlot &u = g_ui[slot];
@@ -567,6 +870,10 @@ void draw_ui()
     if (ImGui::Button("Load")) {
         load_file();
     }
+    toolbar_same_line("Browse...");
+    if (ImGui::Button("Browse...##load")) {  // ## keeps the two browse buttons' ids distinct
+        browser_open(true);
+    }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(84.0f * g_ui_scale);
     if (ImGui::Combo("Scale", &g_scale_index, k_ui_scale_labels, k_ui_scale_count)) {
@@ -585,6 +892,10 @@ void draw_ui()
     ImGui::SetNextItemWidth(360.0f * g_ui_scale);
     ImGui::SetNextItemWidth(path_width);
     ImGui::InputText("Save as", g_out, sizeof(g_out));
+    toolbar_same_line("Browse...");
+    if (ImGui::Button("Browse...##save")) {
+        browser_open(false);
+    }
     toolbar_same_line("Save modified copy");
     if (ImGui::Button("Save modified copy")) {
         save_file();
@@ -651,6 +962,7 @@ void draw_ui()
     }
     ImGui::EndDisabled();
 
+    browser_draw();  // inside the main window: the popup id comes from this window's id stack
     ImGui::End();
 }
 
