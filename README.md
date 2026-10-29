@@ -53,9 +53,7 @@ make                          # builds the CLI, plus the GUI when GLFW/X11 are a
 | `make test` | parity + behaviour tests |
 | `make clean` | remove build output |
 
-Dear ImGui is a git submodule compiled straight into the GUI binary, per the upstream
-recommendation; nothing links against Mesa, because the OpenGL entry points come from the loader
-vendored with the ImGui backend and are resolved from the host driver at runtime.
+Dear ImGui is a git submodule compiled straight into the GUI binary, per the upstream recommendation.
 
 # Using the GUI editor
 1. Start `windwaker-hd-editor` (double-click the AppImage, or run the binary; you can also pass a save file as the first argument to open it immediately).
@@ -67,10 +65,9 @@ vendored with the ImGui backend and are resolved from the host driver at runtime
 6. Put that file back with whatever save manager you already use for save restore, and **test it in-game before deleting your backup**.
 
 Other buttons:
-- **Repair all checksums** - recalculates all three quest logs without changing anything else. Useful when a file was edited by another tool, or after a manual byte-level fix.
+- **Repair all checksums** - recalculates all three quest logs without changing anything else. Useful when a file was corrupted by another tool, or after a manual byte-level fix.
 - **Discard edits** - reloads the working copy from the file you opened.
-- **Scale** - 100% to 250%, applied to fonts and spacing. Text too small on a HiDPI screen? Set it here; the desktop scale is only a starting point.
-- **Quit** - top right, deliberately red.
+- **Scale** - 100% to 250%, applied to fonts and spacing. Text too small on a HiDPI screen? Set it here.
 
 Note the loader only accepts the raw 8966-byte `cking.sav`.
 
@@ -82,5 +79,5 @@ Like this project?
 
 Credits and thanks to the following folk:
 - **ocornut** and contributors for [Dear ImGui](https://github.com/ocornut/imgui), the GUI framework this editor is built on.
-- The authors of publicly documented Wind Waker HD save-format [research](https://github.com/ZeldaWWHDRecomp/ZeldaWWHDRecomp).
-
+- The authors of publicly documented Wind Waker HD save-format research [here](https://github.com/ZeldaWWHDRecomp/ZeldaWWHDRecomp).
+- The pkgforge team for the awesome [sharun](https://github.com/pkgforge-dev/Anylinux-AppImages) script for building AnyLinux AppImages.
