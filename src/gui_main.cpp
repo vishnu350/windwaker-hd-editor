@@ -108,6 +108,29 @@ char g_out[512] = "";
 char g_status[256] = "Load a cking.sav file to begin.";
 bool g_status_bad = false;
 
+const char *env_or_dash(const char *name)
+{
+    const char *value = getenv(name);
+
+    return (value != NULL && value[0] != '\0') ? value : "-";
+}
+
+#if defined(GLFW_PLATFORM_X11)
+// The front end GLFW actually connected to; glfwGetPlatform only exists from GLFW 3.4.
+const char *glfw_platform_name()
+{
+    switch (glfwGetPlatform())
+    {
+        case GLFW_PLATFORM_WAYLAND:
+            return "wayland";
+        case GLFW_PLATFORM_X11:
+            return "x11";
+        default:
+            return "other";
+    }
+}
+#endif
+
 void set_status(bool bad, const char *fmt, ...)
 {
     va_list args;
@@ -480,10 +503,46 @@ int main(int argc, char **argv)
         snprintf(g_path, sizeof(g_path), "%s", argv[1]);
     }
 
-    if (!glfwInit()) {
+    // A Wayland surface has no client-side decorations, so GLFW's Wayland front end comes up
+    // without a title bar. Ask for X11/XWayland, where the window manager decorates the window;
+    // GLFW picks Wayland by itself whenever XDG_SESSION_TYPE=wayland, and it only honours this
+    // hint through glfwInitHint (there is no GLFW_PLATFORM environment variable).
+    const char *platform = "x11";
+#if defined(GLFW_PLATFORM) && defined(GLFW_PLATFORM_X11)
+    if (strcmp(env_or_dash("WWHD_GUI_PLATFORM"), "wayland") == 0) {
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
+        platform = "wayland";
+    } else {
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    }
+#else
+    platform = "any";  // GLFW 3.3 has no Wayland front end on Linux
+#endif
+
+    bool ok = glfwInit();
+#if defined(GLFW_PLATFORM) && defined(GLFW_PLATFORM_X11)
+    // No X11 front end at all (no XWayland): fall back to GLFW's own pick so the app still starts.
+    if (!ok && strcmp(platform, "x11") == 0) {
+        glfwInitHint(GLFW_PLATFORM, GLFW_ANY_PLATFORM);
+        platform = "any";
+        ok = glfwInit();
+    }
+#endif
+    if (!ok) {
         fprintf(stderr, "Could not initialise GLFW; an X11 or Wayland display is required.\n");
         return 1;
     }
+    // Diagnostics: the AppImage packaging is judged by these two lines.
+    fprintf(stderr, "GLFW %s (requested %s; XDG_SESSION_TYPE=%s DISPLAY=%s WAYLAND_DISPLAY=%s)\n",
+            glfwGetVersionString(), platform, env_or_dash("XDG_SESSION_TYPE"),
+            env_or_dash("DISPLAY"), env_or_dash("WAYLAND_DISPLAY"));
+#if defined(GLFW_PLATFORM_X11)
+    fprintf(stderr, "GLFW chose %s\n", glfw_platform_name());
+#endif
+    glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);  // the ImGui window is borderless and fills the
+                                                // client area, so the title bar is the WM's job
+    glfwWindowHintString(GLFW_X11_CLASS_NAME, "wwhd-editor");    // stable WM_CLASS: inside an
+    glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "wwhd-editor"); // AppImage argv[0] is a mount path
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
