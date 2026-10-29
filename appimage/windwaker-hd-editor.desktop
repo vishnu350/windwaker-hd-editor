@@ -1,11 +1,12 @@
 [Desktop Entry]
-Name=windwaker-hd-editor
-Comment=Wind Waker HD save file editor
+Name=Wind Waker HD Save Editor
+GenericName=Save Game Editor
+Comment=Edit cking.sav save files from The Legend of Zelda: The Wind Waker HD (Wii U)
 Exec=windwaker-hd-editor
 Icon=windwaker-hd-editor
 Type=Application
-Categories=System;
+Categories=Game;Development;
 Terminal=false
 StartupNotify=false
-Keywords=games;terminal;
+Keywords=zelda;wind waker;the wind waker hd;save;savegame;save editor;cking.sav;wiiu;wii u;
 StartupWMClass=windwaker-hd-editor
