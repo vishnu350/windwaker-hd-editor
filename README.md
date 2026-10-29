@@ -8,16 +8,16 @@ You must also legally own a Wii U, along with a legally owned copy of the game.
 
 **List of features:**
 - **Three quest logs** in a single `cking.sav`, edited independently and shown side by side.
-- **Remove special items such as the swift sail** correctly, if you dont like it. The swift sail is a broken item and breaks immersion.
+- **Remove special items such as the swift sail** correctly, if you don't like it. The swift sail is a broken item (buggy and breaks immersion).
 - **Live change review** - every pending edit is listed as `old -> new` before you save, computed from the exact bytes a save would write.
 - **Correct "obtained" masks.** Removing or downgrading an item also lowers the owned-variant mask, otherwise the game silently restores the better item on the next in-game save.
 - **Automatic checksums.** The edited quest log is re-summed on the fly; one button re-sums all three if you are repairing a file.
-- **Sanity clamping** - current hearts never exceed max hearts, rupees never exceed the wallet capacity, etc. Avoids crashing the game.
-- **Ships as an AppImage** for universal compatibility.
+- **Sanity clamping** - current hearts never exceed max hearts, rupees never exceed the wallet capacity, etc.
+- **Ships as an AppImage** for universal compatibility (AnyLinux AppImage build).
 - **Command line version** also available.
 
 <p align="center">
-<img src="windwaker-hd-editor.png" alt="Wind Waker HD save editor icon" width="26%"/>
+<img width="1120" height="760" alt="windwaker-hd-editor-gui" src="https://github.com/user-attachments/assets/9ec3da98-3e0c-4771-8f40-d4119784d9c4" />
 </p>
 
 # What the editor can change
@@ -48,9 +48,9 @@ make                          # builds the CLI, plus the GUI when GLFW/X11 are a
 | --- | --- |
 | `make` | `windwaker-hd-editor-cli` and `windwaker-hd-editor` (GUI, if GLFW is installed) |
 | `make gui` | GUI only, with an install hint if the libraries are missing |
-| `make info` | print the three quest logs of the bundled sample `cking.sav` |
+| `make info` | print the three quest logs (needs a sample `cking.sav`) |
 | `make help` | CLI usage text |
-| `make test` | parity + behaviour tests (see [Testing](#testing)) |
+| `make test` | parity + behaviour tests |
 | `make clean` | remove build output |
 
 Dear ImGui is a git submodule compiled straight into the GUI binary, per the upstream
@@ -58,8 +58,6 @@ recommendation; nothing links against Mesa, because the OpenGL entry points come
 vendored with the ImGui backend and are resolved from the host driver at runtime.
 
 # Using the GUI editor
-![Editor screenshot](windwaker-hd-editor-gui.png)
-
 1. Start `windwaker-hd-editor` (double-click the AppImage, or run the binary; you can also pass a save file as the first argument to open it immediately).
 2. Click **Browse...**, pick your `cking.sav`, and it loads right away. The status line turns green with `Loaded ...` or red with the reason it was rejected.
 3. Select the quest log tab you want to work on. The left column holds the widgets, the right column lists **every pending change** as `old -> new`, plus how many bytes differ.
