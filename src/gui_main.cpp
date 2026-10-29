@@ -84,6 +84,7 @@ struct UiSlot {
     int equipment[WW_MAX_FIELDS];
 };
 
+GLFWwindow *g_window = NULL;  // set once the window exists, so widgets can close it
 uint8_t g_original[WW_SAVE_SIZE];
 uint8_t g_working[WW_SAVE_SIZE];
 uint8_t g_preview[WW_SAVE_SIZE];
@@ -109,42 +110,69 @@ void set_status(bool bad, const char *fmt, ...)
     va_end(args);
 }
 
-// Copies stored values into the widget state and rebuilds every combo.
+// Copies one quest log into the widget state and rebuilds every combo.
+void ui_fill(int slot, const WwSlot &s)
+{
+    UiSlot &u = g_ui[slot];
+
+    memset(&u, 0, sizeof(u));
+    snprintf(u.name, sizeof(u.name), "%s", s.display_name);
+    u.max_hearts = (float)s.max_quarters / 4.0f;
+    u.current_hearts = (float)s.current_quarters / 4.0f;
+    u.rupees = s.rupees;
+    u.wallet_level = s.wallet_level < 0 || s.wallet_level > 2 ? 0 : s.wallet_level;
+    u.current_magic = s.current_magic;
+    u.arrows = s.arrows;
+    u.max_arrows = s.max_arrows;
+    u.bombs = s.bombs;
+    u.max_bombs = s.max_bombs;
+
+    int magic_index = 0;
+    for (int i = 0; i < 3; i++) {
+        if (k_max_magic[i] == s.max_magic) {
+            magic_index = i;
+        }
+    }
+    g_max_magic_index[slot] = magic_index;
+
+    for (int i = 0; i < ww_inventory_count; i++) {
+        g_inv_choices[slot][i].rebuild(&ww_inventory[i], s.inventory[i]);
+        u.inventory[i] = g_inv_choices[slot][i].index_of(s.inventory[i]);
+    }
+    for (int i = 0; i < ww_equipment_count; i++) {
+        g_eq_choices[slot][i].rebuild(&ww_equipment[i], s.equipment[i]);
+        u.equipment[i] = g_eq_choices[slot][i].index_of(s.equipment[i]);
+    }
+}
+
 void ui_from_working()
 {
     for (int slot = 0; slot < WW_SLOT_COUNT; slot++) {
         WwSlot s;
+
         ww_read_slot(g_working, slot, &s);
-        UiSlot &u = g_ui[slot];
+        ui_fill(slot, s);
+    }
+}
 
-        memset(&u, 0, sizeof(u));
-        snprintf(u.name, sizeof(u.name), "%s", s.display_name);
-        u.max_hearts = (float)s.max_quarters / 4.0f;
-        u.current_hearts = (float)s.current_quarters / 4.0f;
-        u.rupees = s.rupees;
-        u.wallet_level = s.wallet_level < 0 || s.wallet_level > 2 ? 0 : s.wallet_level;
-        u.current_magic = s.current_magic;
-        u.arrows = s.arrows;
-        u.max_arrows = s.max_arrows;
-        u.bombs = s.bombs;
-        u.max_bombs = s.max_bombs;
+// Blank quest logs so the full layout still renders, greyed, before a file is loaded; the first
+// entry of every value table is its "none" option.
+void ui_reset()
+{
+    for (int slot = 0; slot < WW_SLOT_COUNT; slot++) {
+        WwSlot s;
 
-        int magic_index = 0;
-        for (int i = 0; i < 3; i++) {
-            if (k_max_magic[i] == s.max_magic) {
-                magic_index = i;
-            }
-        }
-        g_max_magic_index[slot] = magic_index;
-
+        memset(&s, 0, sizeof(s));
+        s.slot = slot;
+        s.max_quarters = 12;
+        s.current_quarters = 12;
         for (int i = 0; i < ww_inventory_count; i++) {
-            g_inv_choices[slot][i].rebuild(&ww_inventory[i], s.inventory[i]);
-            u.inventory[i] = g_inv_choices[slot][i].index_of(s.inventory[i]);
+            s.inventory[i] = ww_inventory[i].values[0].value;
         }
         for (int i = 0; i < ww_equipment_count; i++) {
-            g_eq_choices[slot][i].rebuild(&ww_equipment[i], s.equipment[i]);
-            u.equipment[i] = g_eq_choices[slot][i].index_of(s.equipment[i]);
+            s.equipment[i] = ww_equipment[i].values[0].value;
         }
+        ui_fill(slot, s);
     }
 }
 
@@ -257,16 +285,21 @@ void draw_fields(int slot)
     char max_hearts[16];
     char current_hearts[16];
 
-    ww_read_slot(g_working, slot, &stored);
-    ww_format_hearts(max_hearts, sizeof(max_hearts), stored.max_quarters);
-    ww_format_hearts(current_hearts, sizeof(current_hearts), stored.current_quarters);
+    if (g_loaded) {
+        ww_read_slot(g_working, slot, &stored);
+        ww_format_hearts(max_hearts, sizeof(max_hearts), stored.max_quarters);
+        ww_format_hearts(current_hearts, sizeof(current_hearts), stored.current_quarters);
 
-    ImGui::Text("Stored: %s / %s hearts, %d / %d rupees", current_hearts, max_hearts,
-                stored.rupees, stored.wallet_capacity);
-    if (stored.checksum_valid) {
-        ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.4f, 1.0f), "Checksum ok");
+        ImGui::Text("Stored: %s / %s hearts, %d / %d rupees", current_hearts, max_hearts,
+                    stored.rupees, stored.wallet_capacity);
+        if (stored.checksum_valid) {
+            ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.4f, 1.0f), "Checksum ok");
+        } else {
+            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.3f, 1.0f), "Checksum needs repair");
+        }
     } else {
-        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.3f, 1.0f), "Checksum needs repair");
+        memset(&stored, 0, sizeof(stored));  // nothing stored yet, so no masks to show either
+        ImGui::Text("Stored: nothing loaded yet");
     }
     ImGui::Separator();
 
@@ -318,7 +351,7 @@ void draw_fields(int slot)
         ImGui::SetNextItemWidth(-175);  // leave room for the label
         ImGui::Combo(ww_inventory[i].label, &u.inventory[i],
                      g_inv_choices[slot][i].items.data(), (int)g_inv_choices[slot][i].items.size());
-        if (ww_inventory[i].count > 2 && stored.inventory_get[i] >= 0) {
+        if (g_loaded && ww_inventory[i].count > 2 && stored.inventory_get[i] >= 0) {
             ImGui::TextDisabled("stored obtained mask 0x%02X", stored.inventory_get[i]);
         }
     }
@@ -354,11 +387,15 @@ void draw_ui()
     if (ImGui::Button("Load")) {
         load_file();
     }
+    ImGui::SameLine(ImGui::GetWindowWidth() - 15.0f);  // quit in the top-right corner
+    if (ImGui::Button("Quit")) {
+        glfwSetWindowShouldClose(g_window, GLFW_TRUE);
+    }
 
+    ImGui::BeginDisabled(!g_loaded);  // the save row greys out until a file is open
     ImGui::SetNextItemWidth(360);
     ImGui::InputText("Save as", g_out, sizeof(g_out));
     ImGui::SameLine();
-    ImGui::BeginDisabled(!g_loaded);
     if (ImGui::Button("Save modified copy")) {
         save_file();
     }
@@ -381,16 +418,15 @@ void draw_ui()
         ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.4f, 1.0f), "%s", g_status);
     }
 
-    if (!g_loaded) {
-        ImGui::End();
-        return;
+    // Rebuild the preview every frame so the change list always matches what a save would write.
+    char err[256] = "";
+    if (g_loaded) {
+        memcpy(g_preview, g_working, WW_SAVE_SIZE);
+        g_preview_valid = apply_into(g_preview, err, sizeof(err));
     }
 
-    // Rebuild the preview every frame so the change list always matches what a save would write.
-    char err[256];
-    memcpy(g_preview, g_working, WW_SAVE_SIZE);
-    g_preview_valid = apply_into(g_preview, err, sizeof(err));
-
+    // The edit area is always laid out, greyed out while no save is loaded.
+    ImGui::BeginDisabled(!g_loaded);
     if (ImGui::BeginTabBar("QuestLogs")) {
         for (int slot = 0; slot < WW_SLOT_COUNT; slot++) {
             WwSlot s;
@@ -413,12 +449,17 @@ void draw_ui()
         ImGui::BeginChild("Changes", ImVec2(0, 0), ImGuiChildFlags_Borders);
         ImGui::TextUnformatted("Pending changes");
         ImGui::Separator();
-        if (!g_preview_valid) {
-            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.3f, 1.0f), "%s", err);
+        if (!g_loaded) {
+            ImGui::Text("Load a save file to compare against it.");
+        } else {
+            if (!g_preview_valid) {
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.3f, 1.0f), "%s", err);
+            }
+            draw_changes();
         }
-        draw_changes();
         ImGui::EndChild();
     }
+    ImGui::EndDisabled();
 
     ImGui::End();
 }
@@ -452,6 +493,7 @@ int main(int argc, char **argv)
     }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
+    g_window = window;
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -466,7 +508,10 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    load_file();
+    ui_reset();  // blank widget state, so the editor is fully drawn even with no file loaded
+    if (argc > 1) {
+        load_file();
+    }
 
     // WWHD_GUI_FRAMES renders a fixed number of frames and quits; used for headless smoke tests.
     const char *frame_limit_text = getenv("WWHD_GUI_FRAMES");
@@ -493,7 +538,7 @@ int main(int argc, char **argv)
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
 
-        if (autosave_path && frames == 1) {
+        if (autosave_path && frames == 1 && g_loaded) {
             printf("autosave %s: %s\n", autosave_path, save_to(autosave_path) ? "ok" : "failed");
         }
         frames++;
