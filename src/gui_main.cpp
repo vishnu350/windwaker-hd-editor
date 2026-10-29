@@ -9,10 +9,18 @@
 #include <string>
 #include <vector>
 
+#ifndef GLFW_INCLUDE_NONE  // the Makefile sets this too: glfw3.h must not include <GL/gl.h>, the
+#define GLFW_INCLUDE_NONE  // GL entry points come from the loader vendored with the ImGui backend
+#endif
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+#if defined(__APPLE__)
+#include <OpenGL/gl3.h>
+#else
+#include <backends/imgui_impl_opengl3_loader.h>  // glClear/glViewport/gl3wInit, dlopened at runtime
+#endif
 
 namespace {
 
@@ -387,7 +395,7 @@ void draw_ui()
     if (ImGui::Button("Load")) {
         load_file();
     }
-    ImGui::SameLine(ImGui::GetWindowWidth() - 15.0f);  // quit in the top-right corner
+    ImGui::SameLine(ImGui::GetWindowWidth() - 48.0f);  // quit in the top-right corner
     if (ImGui::Button("Quit")) {
         glfwSetWindowShouldClose(g_window, GLFW_TRUE);
     }

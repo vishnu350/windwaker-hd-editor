@@ -20,7 +20,12 @@ IMGUI_OBJS   := $(notdir $(IMGUI_CXX:.cpp=.o))
 IMGUI_OBJS   := $(addprefix $(OBJ_DIR)/,$(IMGUI_OBJS))
 IMGUI_INC    := -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 
-# The GUI needs GLFW and GL headers: apt-get install libglfw3-dev libgl1-mesa-dev
+# GLFW_INCLUDE_NONE stops glfw3.h from including <GL/gl.h>; the OpenGL entry points come from the
+# loader vendored with imgui_impl_opengl3, which dlopens the host driver at runtime.
+GLFW_NO_GL   := -DGLFW_INCLUDE_NONE
+
+# The GUI needs GLFW headers only - OpenGL entry points come from the loader vendored with the
+# ImGui backend, which dlopens the host driver at runtime, so nothing links or builds against Mesa.
 GLFW_OK := $(shell pkg-config --exists glfw3 2>/dev/null && echo yes)
 GLFW_LIBS := $(shell pkg-config --libs glfw3 2>/dev/null)
 
@@ -33,19 +38,19 @@ $(BIN): $(OBJ_DIR)/main.o $(OBJ_DIR)/save_format.o
 	$(CC) $(CFLAGS) -o $@ $(OBJ_DIR)/main.o $(OBJ_DIR)/save_format.o $(LDLIBS)
 
 $(GUI_BIN): $(OBJ_DIR)/gui_main.o $(OBJ_DIR)/save_format.o $(IMGUI_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LIBS) -lGL -ldl $(LDLIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LIBS) -ldl $(LDLIBS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS) | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 $(OBJ_DIR)/gui_main.o: $(SRC_DIR)/gui_main.cpp $(HEADERS) | $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(IMGUI_INC) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(GLFW_NO_GL) $(IMGUI_INC) -c -o $@ $<
 
 $(OBJ_DIR)/%.o: $(IMGUI_DIR)/%.cpp | $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(IMGUI_INC) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(GLFW_NO_GL) $(IMGUI_INC) -c -o $@ $<
 
 $(OBJ_DIR)/%.o: $(IMGUI_DIR)/backends/%.cpp | $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(IMGUI_INC) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(GLFW_NO_GL) $(IMGUI_INC) -c -o $@ $<
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
@@ -55,7 +60,7 @@ ifeq ($(GLFW_OK),yes)
 gui: $(GUI_BIN)
 else
 	@echo "Missing libraries for the ImGui frontend. Install them with:"
-	@echo "  apt-get install -y libglfw3-dev libgl1-mesa-dev"
+	@echo "  apt-get install -y libglfw3-dev"
 	@exit 1
 endif
 
