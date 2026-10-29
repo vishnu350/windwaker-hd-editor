@@ -17,7 +17,7 @@ You must also legally own a Wii U, along with a legally owned copy of the game.
 - **Command line version** also available.
 
 <p align="center">
-<img alt="windwaker-hd-editor-gui" src="https://github.com/user-attachments/assets/9ec3da98-3e0c-4771-8f40-d4119784d9c4" width="80%" />
+<img alt="windwaker-hd-editor-gui" src="https://github.com/user-attachments/assets/9ec3da98-3e0c-4771-8f40-d4119784d9c4" width="90%" />
 </p>
 
 # What the editor can change
