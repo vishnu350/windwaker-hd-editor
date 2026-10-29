@@ -24,10 +24,13 @@ IMGUI_INC    := -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 # loader vendored with imgui_impl_opengl3, which dlopens the host driver at runtime.
 GLFW_NO_GL   := -DGLFW_INCLUDE_NONE
 
-# The GUI needs GLFW headers only - OpenGL entry points come from the loader vendored with the
-# ImGui backend, which dlopens the host driver at runtime, so nothing links or builds against Mesa.
-GLFW_OK := $(shell pkg-config --exists glfw3 2>/dev/null && echo yes)
+# The GUI needs GLFW and X11 headers only - OpenGL entry points come from the loader vendored with
+# the ImGui backend, which dlopens the host driver at runtime, so nothing links or builds against
+# Mesa. X11 is read for the Xft.dpi scale and is a GLFW dependency anyway.
+GLFW_OK := $(shell pkg-config --exists glfw3 x11 2>/dev/null && echo yes)
 GLFW_LIBS := $(shell pkg-config --libs glfw3 2>/dev/null)
+X11_CFLAGS := $(shell pkg-config --cflags x11 2>/dev/null)
+X11_LIBS := $(shell pkg-config --libs x11 2>/dev/null)
 
 all: $(BIN)
 ifeq ($(GLFW_OK),yes)
@@ -38,13 +41,13 @@ $(BIN): $(OBJ_DIR)/main.o $(OBJ_DIR)/save_format.o
 	$(CC) $(CFLAGS) -o $@ $(OBJ_DIR)/main.o $(OBJ_DIR)/save_format.o $(LDLIBS)
 
 $(GUI_BIN): $(OBJ_DIR)/gui_main.o $(OBJ_DIR)/save_format.o $(IMGUI_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LIBS) -ldl $(LDLIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(GLFW_LIBS) $(X11_LIBS) -ldl $(LDLIBS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS) | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 $(OBJ_DIR)/gui_main.o: $(SRC_DIR)/gui_main.cpp $(HEADERS) | $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(GLFW_NO_GL) $(IMGUI_INC) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(GLFW_NO_GL) $(X11_CFLAGS) $(IMGUI_INC) -c -o $@ $<
 
 $(OBJ_DIR)/%.o: $(IMGUI_DIR)/%.cpp | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(GLFW_NO_GL) $(IMGUI_INC) -c -o $@ $<
@@ -60,7 +63,7 @@ ifeq ($(GLFW_OK),yes)
 gui: $(GUI_BIN)
 else
 	@echo "Missing libraries for the ImGui frontend. Install them with:"
-	@echo "  apt-get install -y libglfw3-dev"
+	@echo "  apt-get install -y libglfw3-dev libx11-dev"
 	@exit 1
 endif
 

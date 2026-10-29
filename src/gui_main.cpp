@@ -21,6 +21,12 @@
 #else
 #include <backends/imgui_impl_opengl3_loader.h>  // glClear/glViewport/gl3wInit, dlopened at runtime
 #endif
+#if !defined(__APPLE__) && !defined(_WIN32)
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>      // XA_RESOURCE_MANAGER
+#include <X11/Xresource.h>  // Xft.dpi lookup: the Xrm* resource-database functions
+#define WWHD_HAVE_X11 1
+#endif
 
 namespace {
 
@@ -126,8 +132,59 @@ const char *env_or_dash(const char *name)
     return (value != NULL && value[0] != '\0') ? value : "-";
 }
 
-// The desktop's own scaling factor, when it publishes one: WWHD_GUI_SCALE wins, then Qt/GDK.
-float env_scale()
+// Xft.dpi is the value a desktop publishes for X11 and XWayland clients: GNOME writes 96 times
+// its text-scaling-factor there, and KDE and XFCE publish their scaling the same way. Returns 0
+// when nothing was published, so the caller keeps the previous value.
+float xft_scale()
+{
+#if defined(WWHD_HAVE_X11)
+    if (getenv("DISPLAY") == NULL) {
+        return 0.0f;  // XOpenDisplay would only complain on stderr
+    }
+    Display *display = XOpenDisplay(NULL);
+    Atom type = None;
+    int format = 0;
+    unsigned long items = 0;
+    unsigned long bytes_left = 0;
+    unsigned char *data = NULL;
+    float scale = 0.0f;
+
+    // RESOURCE_MANAGER on the root window, read directly instead of through
+    // XResourceManagerString() so there is no per-display caching in the way.
+    if (display != NULL &&
+        XGetWindowProperty(display, RootWindow(display, DefaultScreen(display)),
+                           XA_RESOURCE_MANAGER, 0, (~0L), False, AnyPropertyType, &type, &format,
+                           &items, &bytes_left, &data) == Success && data != NULL) {
+        XrmInitialize();
+        XrmDatabase database = XrmGetStringDatabase((const char *)data);
+
+        if (database != NULL) {
+            char *value_type = NULL;
+            XrmValue value;
+
+            if (XrmGetResource(database, "Xft.dpi", "Xft.Dpi", &value_type, &value) &&
+                value.addr != NULL) {
+                float dpi = (float)atof(value.addr);
+
+                if (dpi > 0.0f) {
+                    scale = dpi / 96.0f;
+                }
+            }
+            XrmDestroyDatabase(database);
+        }
+        XFree(data);
+    }
+    if (display != NULL) {
+        XCloseDisplay(display);
+    }
+    return scale;
+#else
+    return 0.0f;
+#endif
+}
+
+// Scaling factor to start with: WWHD_GUI_SCALE wins, then the Qt/GDK variables, then Xft.dpi.
+float detect_ui_scale()
 {
     const char *text = getenv("WWHD_GUI_SCALE");
 
@@ -137,8 +194,11 @@ float env_scale()
     if (text == NULL) {
         text = getenv("GDK_SCALE");
     }
-    float scale = (text != NULL) ? (float)atof(text) : 1.0f;
+    float scale = (text != NULL) ? (float)atof(text) : 0.0f;
 
+    if (scale <= 0.0f) {
+        scale = xft_scale();
+    }
     if (scale < 1.0f) {
         scale = 1.0f;
     }
@@ -590,8 +650,6 @@ int main(int argc, char **argv)
     // without a title bar. Ask for X11/XWayland, where the window manager decorates the window;
     // GLFW picks Wayland by itself whenever XDG_SESSION_TYPE=wayland, and it only honours this
     // hint through glfwInitHint (there is no GLFW_PLATFORM environment variable).
-    g_ui_scale = env_scale();  // known before the window exists so its size can scale too
-
     const char *platform = "x11";
 #if defined(GLFW_PLATFORM) && defined(GLFW_PLATFORM_X11)
     if (strcmp(env_or_dash("WWHD_GUI_PLATFORM"), "wayland") == 0) {
@@ -624,6 +682,9 @@ int main(int argc, char **argv)
 #if defined(GLFW_PLATFORM_X11)
     fprintf(stderr, "GLFW chose %s\n", glfw_platform_name());
 #endif
+    // Needs the connected display for Xft.dpi, so it runs after glfwInit and before the window.
+    g_ui_scale = detect_ui_scale();
+    fprintf(stderr, "UI scale %.2f\n", g_ui_scale);
     glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);  // the ImGui window is borderless and fills the
                                                 // client area, so the title bar is the WM's job
     glfwWindowHintString(GLFW_X11_CLASS_NAME, "wwhd-editor");    // stable WM_CLASS: inside an
