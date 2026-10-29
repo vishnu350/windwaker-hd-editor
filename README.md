@@ -8,11 +8,11 @@ You must also legally own a Wii U, along with a legally owned copy of the game.
 
 **List of features:**
 - **Three quest logs** in a single `cking.sav`, edited independently and shown side by side.
-- **Remove special items such as the swift sail** correctly, if you don't like it. The swift sail is a broken item (buggy and breaks immersion).
+- **Remove special items such as the swift sail** correctly, if you don't like it. The swift sail is a buggy/broken item, and the permanent on-screen button prompt breaks immersion while sailing.
 - **Live change review** - every pending edit is listed as `old -> new` before you save, computed from the exact bytes a save would write.
 - **Correct "obtained" masks.** Removing or downgrading an item also lowers the owned-variant mask, otherwise the game silently restores the better item on the next in-game save.
 - **Automatic checksums.** The edited quest log is re-summed on the fly; one button re-sums all three if you are repairing a file.
-- **Sanity clamping** - current hearts never exceed max hearts, rupees never exceed the wallet capacity, etc.
+- **Amount clamping** - current hearts never exceed max hearts, rupees never exceed the wallet capacity, etc.
 - **Ships as an AppImage** for universal compatibility (AnyLinux AppImage build).
 - **Command line version** also available.
 
