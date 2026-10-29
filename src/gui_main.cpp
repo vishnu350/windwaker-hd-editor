@@ -829,9 +829,6 @@ void draw_fields(int slot)
         ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
         ImGui::Combo(ww_inventory[i].label, &u.inventory[i],
                      g_inv_choices[slot][i].items.data(), (int)g_inv_choices[slot][i].items.size());
-        if (g_loaded && ww_inventory[i].count > 2 && stored.inventory_get[i] >= 0) {
-            ImGui::TextDisabled("stored obtained mask 0x%02X", stored.inventory_get[i]);
-        }
     }
 }
 
