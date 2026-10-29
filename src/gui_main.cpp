@@ -39,6 +39,7 @@ const float k_window_height = 760.0f;
 const float k_ui_scales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f };
 const char *k_ui_scale_labels[] = { "100%", "125%", "150%", "175%", "200%", "250%" };
 const int k_ui_scale_count = (int)(sizeof(k_ui_scales) / sizeof(k_ui_scales[0]));
+const float k_auto_scale_max = 1.5f;  // detected scaling is capped; the combo and env are not
 
 // Combo options for one field; unknown stored bytes get a "keep" entry so they survive.
 struct Choices {
@@ -119,6 +120,7 @@ bool g_preview_valid = false;
 int g_tab = 0;
 ImGuiStyle g_base_style;   // fresh style, re-scaled whenever the UI scale changes
 float g_ui_scale = 1.0f;
+const char *g_scale_source = "default";  // where the starting scale came from, for the log line
 int g_scale_index = 0;
 char g_path[512] = "cking.sav";
 char g_out[512] = "";
@@ -167,7 +169,7 @@ float xft_scale()
                 float dpi = (float)atof(value.addr);
 
                 if (dpi > 0.0f) {
-                    scale = dpi / 96.0f;
+                    scale = dpi / 96.0f;  // 96 dpi is the unscaled baseline, so this is the factor
                 }
             }
             XrmDestroyDatabase(database);
@@ -183,21 +185,30 @@ float xft_scale()
 #endif
 }
 
-// Scaling factor to start with: WWHD_GUI_SCALE wins, then the Qt/GDK variables, then Xft.dpi.
+// Scaling factor to start with: WWHD_GUI_SCALE wins, then the Qt/GDK variables, then Xft.dpi, and
+// only the detected value is capped at k_auto_scale_max - an explicit request is taken as given.
 float detect_ui_scale()
 {
-    const char *text = getenv("WWHD_GUI_SCALE");
+    static const char *const k_env_names[] = {"WWHD_GUI_SCALE", "QT_SCALE_FACTOR", "GDK_SCALE"};
+    const char *text = NULL;
+    const char *source = "default";
 
-    if (text == NULL) {
-        text = getenv("QT_SCALE_FACTOR");
-    }
-    if (text == NULL) {
-        text = getenv("GDK_SCALE");
+    for (int i = 0; i < 3 && text == NULL; i++) {
+        text = getenv(k_env_names[i]);
+        if (text != NULL) {
+            source = k_env_names[i];
+        }
     }
     float scale = (text != NULL) ? (float)atof(text) : 0.0f;
 
     if (scale <= 0.0f) {
         scale = xft_scale();
+        if (scale > k_auto_scale_max) {
+            scale = k_auto_scale_max;
+        }
+        if (scale > 0.0f) {
+            source = "Xft.dpi";
+        }
     }
     if (scale < 1.0f) {
         scale = 1.0f;
@@ -205,6 +216,7 @@ float detect_ui_scale()
     if (scale > k_ui_scales[k_ui_scale_count - 1]) {
         scale = k_ui_scales[k_ui_scale_count - 1];
     }
+    g_scale_source = source;
     return scale;
 }
 
@@ -560,10 +572,14 @@ void draw_ui()
     if (ImGui::Combo("Scale", &g_scale_index, k_ui_scale_labels, k_ui_scale_count)) {
         apply_ui_scale(k_ui_scales[g_scale_index]);
     }
-    ImGui::SameLine(ImGui::GetWindowWidth() - 48.0f * g_ui_scale);  // quit in the top-right corner
+    ImGui::SameLine(ImGui::GetWindowWidth() - 46.0f * g_ui_scale);  // quit in the top-right corner
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.20f, 0.20f, 0.60f));      // destructive
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.86f, 0.28f, 0.28f, 0.80f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.00f, 0.36f, 0.36f, 0.95f));
     if (ImGui::Button("Quit")) {
         glfwSetWindowShouldClose(g_window, GLFW_TRUE);
     }
+    ImGui::PopStyleColor(3);
 
     ImGui::BeginDisabled(!g_loaded);  // the save row greys out until a file is open
     ImGui::SetNextItemWidth(360.0f * g_ui_scale);
@@ -684,7 +700,7 @@ int main(int argc, char **argv)
 #endif
     // Needs the connected display for Xft.dpi, so it runs after glfwInit and before the window.
     g_ui_scale = detect_ui_scale();
-    fprintf(stderr, "UI scale %.2f\n", g_ui_scale);
+    fprintf(stderr, "UI scale %.2f (%s)\n", g_ui_scale, g_scale_source);
     glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);  // the ImGui window is borderless and fills the
                                                 // client area, so the title bar is the WM's job
     glfwWindowHintString(GLFW_X11_CLASS_NAME, "wwhd-editor");    // stable WM_CLASS: inside an
