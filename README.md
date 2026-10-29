@@ -7,8 +7,8 @@ You are editing your own save data at your own risk, so keep a backup of the ori
 You must also legally own a Wii U, along with a legally owned copy of the game.
 
 **List of features:**
-- **Three quest logs** in a single `cking.sav`, edited independently and shown side by side.
-- **Remove special items such as the swift sail** correctly, if you don't like it. The swift sail is a buggy/broken item, and the permanent on-screen button prompt breaks immersion while sailing.
+- **Edit all three slots** in a single `cking.sav`, edited independently and shown side by side.
+- **Remove special items such as the swift sail** correctly. The swift sail is a buggy/broken item, and the permanent on-screen button prompt breaks immersion while sailing.
 - **Live change review** - every pending edit is listed as `old -> new` before you save, computed from the exact bytes a save would write.
 - **Correct "obtained" masks.** Removing or downgrading an item also lowers the owned-variant mask, otherwise the game silently restores the better item on the next in-game save.
 - **Automatic checksums.** The edited quest log is re-summed on the fly; one button re-sums all three if you are repairing a file.
@@ -20,8 +20,8 @@ You must also legally own a Wii U, along with a legally owned copy of the game.
 <img alt="windwaker-hd-editor-gui" src="https://github.com/user-attachments/assets/9ec3da98-3e0c-4771-8f40-d4119784d9c4" width="90%" />
 </p>
 
-# What the editor can change
-Each of the three quest logs exposes:
+# What can the editor change?
+Each of the three slots can be modified:
 - **Name** (1-8 characters, written to the display name and the three internal copies).
 - **Max hearts / current hearts**, in quarter-heart steps up to 20.
 - **Rupees** and **wallet capacity** (200, 1000 or 5000).
