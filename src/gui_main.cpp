@@ -25,6 +25,14 @@
 namespace {
 
 const int k_max_magic[] = {0, 16, 32};
+const float k_window_width = 1120.0f;
+const float k_window_height = 760.0f;
+
+// UI scale: the 13px default is tiny on a HiDPI panel and XWayland does not scale us at all, so
+// start from the desktop factor and let the toolbar override it.
+const float k_ui_scales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f };
+const char *k_ui_scale_labels[] = { "100%", "125%", "150%", "175%", "200%", "250%" };
+const int k_ui_scale_count = (int)(sizeof(k_ui_scales) / sizeof(k_ui_scales[0]));
 
 // Combo options for one field; unknown stored bytes get a "keep" entry so they survive.
 struct Choices {
@@ -103,6 +111,9 @@ int g_max_magic_index[WW_SLOT_COUNT];
 bool g_loaded = false;
 bool g_preview_valid = false;
 int g_tab = 0;
+ImGuiStyle g_base_style;   // fresh style, re-scaled whenever the UI scale changes
+float g_ui_scale = 1.0f;
+int g_scale_index = 0;
 char g_path[512] = "cking.sav";
 char g_out[512] = "";
 char g_status[256] = "Load a cking.sav file to begin.";
@@ -113,6 +124,53 @@ const char *env_or_dash(const char *name)
     const char *value = getenv(name);
 
     return (value != NULL && value[0] != '\0') ? value : "-";
+}
+
+// The desktop's own scaling factor, when it publishes one: WWHD_GUI_SCALE wins, then Qt/GDK.
+float env_scale()
+{
+    const char *text = getenv("WWHD_GUI_SCALE");
+
+    if (text == NULL) {
+        text = getenv("QT_SCALE_FACTOR");
+    }
+    if (text == NULL) {
+        text = getenv("GDK_SCALE");
+    }
+    float scale = (text != NULL) ? (float)atof(text) : 1.0f;
+
+    if (scale < 1.0f) {
+        scale = 1.0f;
+    }
+    if (scale > k_ui_scales[k_ui_scale_count - 1]) {
+        scale = k_ui_scales[k_ui_scale_count - 1];
+    }
+    return scale;
+}
+
+int scale_index_for(float scale)
+{
+    int best = 0;
+
+    for (int i = 0; i < k_ui_scale_count; i++) {
+        if (fabsf(k_ui_scales[i] - scale) < fabsf(k_ui_scales[best] - scale)) {
+            best = i;
+        }
+    }
+    return best;
+}
+
+// Applies a scale to a fresh copy of the default style: FontScaleMain resizes the glyphs (the
+// embedded default font is scalable, so they stay sharp) and ScaleAllSizes() the spacing, which
+// rounds and must therefore never be applied twice.
+void apply_ui_scale(float scale)
+{
+    ImGuiStyle &style = ImGui::GetStyle();
+
+    style = g_base_style;
+    style.FontScaleMain = scale;
+    style.ScaleAllSizes(scale);
+    g_ui_scale = scale;
 }
 
 #if defined(GLFW_PLATFORM_X11)
@@ -309,12 +367,26 @@ void save_file(void)
     save_to(target);
 }
 
+// Keeps a toolbar item on the current line, or lets it wrap when the UI scale made the row too
+// wide for the window.
+void toolbar_same_line(const char *label)
+{
+    const ImGuiStyle &style = ImGui::GetStyle();
+    float next_x = ImGui::GetItemRectMax().x + style.ItemSpacing.x;  // where SameLine would land
+    float item_width = ImGui::CalcTextSize(label).x + 2.0f * style.FramePadding.x;
+
+    if (next_x + item_width <= ImGui::GetWindowWidth() - style.WindowPadding.x) {
+        ImGui::SameLine();
+    }
+}
+
 void draw_fields(int slot)
 {
     UiSlot &u = g_ui[slot];
     WwSlot stored;
     char max_hearts[16];
     char current_hearts[16];
+    const float label_gap = 175.0f * g_ui_scale;  // room for the label drawn after each field
 
     if (g_loaded) {
         ww_read_slot(g_working, slot, &stored);
@@ -334,44 +406,44 @@ void draw_fields(int slot)
     }
     ImGui::Separator();
 
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::InputText("Name", u.name, sizeof(u.name));
     if (u.name[0] == '\0') {
         ImGui::TextDisabled("(empty name keeps the stored value)");
     }
 
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::DragFloat("Max hearts", &u.max_hearts, 0.25f, 0.25f, 20.0f, "%.2f");
     u.max_hearts = rintf(u.max_hearts * 4.0f) / 4.0f;
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::DragFloat("Current hearts", &u.current_hearts, 0.25f, 0.25f, 20.0f, "%.2f");
     u.current_hearts = rintf(u.current_hearts * 4.0f) / 4.0f;
 
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::InputInt("Rupees", &u.rupees);
     const char *wallets[3] = {"200", "1000", "5000"};
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::Combo("Wallet", &u.wallet_level, wallets, 3);
 
     const char *magics[3] = {"0", "16", "32"};
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::Combo("Max magic", &g_max_magic_index[slot], magics, 3);
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::InputInt("Current magic", &u.current_magic);
 
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::InputInt("Arrows", &u.arrows);
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::InputInt("Max arrows", &u.max_arrows);
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::InputInt("Bombs##count", &u.bombs);  // ## keeps the ID distinct from the Bombs inventory combo
-    ImGui::SetNextItemWidth(-175);  // leave room for the label
+    ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::InputInt("Max bombs", &u.max_bombs);
 
     ImGui::Separator();
     ImGui::TextUnformatted("Equipment");
     for (int i = 0; i < ww_equipment_count; i++) {
-        ImGui::SetNextItemWidth(-175);  // leave room for the label
+        ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
         ImGui::Combo(ww_equipment[i].label, &u.equipment[i],
                      g_eq_choices[slot][i].items.data(), (int)g_eq_choices[slot][i].items.size());
     }
@@ -379,7 +451,7 @@ void draw_fields(int slot)
     ImGui::Separator();
     ImGui::TextUnformatted("Inventory");
     for (int i = 0; i < ww_inventory_count; i++) {
-        ImGui::SetNextItemWidth(-175);  // leave room for the label
+        ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
         ImGui::Combo(ww_inventory[i].label, &u.inventory[i],
                      g_inv_choices[slot][i].items.data(), (int)g_inv_choices[slot][i].items.size());
         if (g_loaded && ww_inventory[i].count > 2 && stored.inventory_get[i] >= 0) {
@@ -412,30 +484,41 @@ void draw_ui()
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
     ImGui::Begin("Wind Waker HD save editor", NULL, flags);
 
-    ImGui::SetNextItemWidth(360);
+    float path_width = 360.0f * g_ui_scale;  // the path rows never take more than half the window
+
+    if (path_width > ImGui::GetWindowWidth() * 0.5f) {
+        path_width = ImGui::GetWindowWidth() * 0.5f;
+    }
+    ImGui::SetNextItemWidth(path_width);
     ImGui::InputText("File", g_path, sizeof(g_path));
     ImGui::SameLine();
     if (ImGui::Button("Load")) {
         load_file();
     }
-    ImGui::SameLine(ImGui::GetWindowWidth() - 48.0f);  // quit in the top-right corner
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(84.0f * g_ui_scale);
+    if (ImGui::Combo("Scale", &g_scale_index, k_ui_scale_labels, k_ui_scale_count)) {
+        apply_ui_scale(k_ui_scales[g_scale_index]);
+    }
+    ImGui::SameLine(ImGui::GetWindowWidth() - 48.0f * g_ui_scale);  // quit in the top-right corner
     if (ImGui::Button("Quit")) {
         glfwSetWindowShouldClose(g_window, GLFW_TRUE);
     }
 
     ImGui::BeginDisabled(!g_loaded);  // the save row greys out until a file is open
-    ImGui::SetNextItemWidth(360);
+    ImGui::SetNextItemWidth(360.0f * g_ui_scale);
+    ImGui::SetNextItemWidth(path_width);
     ImGui::InputText("Save as", g_out, sizeof(g_out));
-    ImGui::SameLine();
+    toolbar_same_line("Save modified copy");
     if (ImGui::Button("Save modified copy")) {
         save_file();
     }
-    ImGui::SameLine();
+    toolbar_same_line("Repair all checksums");
     if (ImGui::Button("Repair all checksums")) {
         ww_repair_all(g_working);
         set_status(false, "All three quest-log checksums were recalculated; save to write them.");
     }
-    ImGui::SameLine();
+    toolbar_same_line("Discard edits");
     if (ImGui::Button("Discard edits")) {
         memcpy(g_working, g_original, WW_SAVE_SIZE);
         ui_from_working();
@@ -473,7 +556,7 @@ void draw_ui()
         }
         ImGui::EndTabBar();
 
-        ImGui::BeginChild("Fields", ImVec2(430, 0), ImGuiChildFlags_Borders);
+        ImGui::BeginChild("Fields", ImVec2(430.0f * g_ui_scale, 0), ImGuiChildFlags_Borders);
         draw_fields(g_tab);
         ImGui::EndChild();
         ImGui::SameLine();
@@ -507,6 +590,8 @@ int main(int argc, char **argv)
     // without a title bar. Ask for X11/XWayland, where the window manager decorates the window;
     // GLFW picks Wayland by itself whenever XDG_SESSION_TYPE=wayland, and it only honours this
     // hint through glfwInitHint (there is no GLFW_PLATFORM environment variable).
+    g_ui_scale = env_scale();  // known before the window exists so its size can scale too
+
     const char *platform = "x11";
 #if defined(GLFW_PLATFORM) && defined(GLFW_PLATFORM_X11)
     if (strcmp(env_or_dash("WWHD_GUI_PLATFORM"), "wayland") == 0) {
@@ -546,12 +631,26 @@ int main(int argc, char **argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow *window = glfwCreateWindow(1120, 760, "Wind Waker HD Save Editor", NULL, NULL);
+    int window_width = (int)(k_window_width * g_ui_scale);
+    int window_height = (int)(k_window_height * g_ui_scale);
+    const GLFWvidmode *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+    if (mode != NULL) {  // a scaled window must not end up larger than the screen
+        if (window_width > mode->width) {
+            window_width = mode->width;
+        }
+        if (window_height > mode->height) {
+            window_height = mode->height;
+        }
+    }
+    GLFWwindow *window = glfwCreateWindow(window_width, window_height,
+                                          "Wind Waker HD Save Editor", NULL, NULL);
     if (!window) {
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-        window = glfwCreateWindow(1120, 760, "Wind Waker HD Save Editor", NULL, NULL);
+        window = glfwCreateWindow(window_width, window_height,
+                                  "Wind Waker HD Save Editor", NULL, NULL);
     }
     if (!window) {
         fprintf(stderr, "Could not create an OpenGL context.\n");
@@ -568,6 +667,9 @@ int main(int argc, char **argv)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = NULL;  // no imgui.ini in whatever directory the tool was started from
     ImGui::StyleColorsDark();
+    g_base_style = ImGui::GetStyle();
+    g_scale_index = scale_index_for(g_ui_scale);
+    apply_ui_scale(k_ui_scales[g_scale_index]);
     glfwShowWindow(window);
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     if (!ImGui_ImplOpenGL3_Init("#version 150")) {
