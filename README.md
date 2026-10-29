@@ -69,7 +69,7 @@ Other buttons:
 - **Discard edits** - reloads the working copy from the file you opened.
 - **Scale** - 100% to 250%, applied to fonts and spacing. Text too small on a HiDPI screen? Set it here.
 
-Note the loader only accepts the raw 8966-byte `cking.sav`.
+**Note**: Only the raw 8966-byte `cking.sav` is accepted.
 
 # Thanks & How To Contribute
 Like this project?
