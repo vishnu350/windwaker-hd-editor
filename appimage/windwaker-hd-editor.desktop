@@ -1,11 +1,11 @@
 [Desktop Entry]
-Name=wwhd-editor
+Name=windwaker-hd-editor
 Comment=Wind Waker HD save file editor
-Exec=wwhd-editor
-Icon=wwhd-editor
+Exec=windwaker-hd-editor
+Icon=windwaker-hd-editor
 Type=Application
 Categories=System;
 Terminal=false
 StartupNotify=false
 Keywords=games;terminal;
-StartupWMClass=wwhd-editor
+StartupWMClass=windwaker-hd-editor

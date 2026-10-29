@@ -703,8 +703,8 @@ int main(int argc, char **argv)
     fprintf(stderr, "UI scale %.2f (%s)\n", g_ui_scale, g_scale_source);
     glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);  // the ImGui window is borderless and fills the
                                                 // client area, so the title bar is the WM's job
-    glfwWindowHintString(GLFW_X11_CLASS_NAME, "wwhd-editor");    // stable WM_CLASS: inside an
-    glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "wwhd-editor"); // AppImage argv[0] is a mount path
+    glfwWindowHintString(GLFW_X11_CLASS_NAME, "windwaker-hd-editor");    // stable WM_CLASS: inside an
+    glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "windwaker-hd-editor"); // AppImage argv[0] is a mount path
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);

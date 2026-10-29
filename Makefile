@@ -7,8 +7,8 @@ LDLIBS  ?= -lm
 
 SRC_DIR := src
 OBJ_DIR := build
-BIN     := wwhd-editor-cli
-GUI_BIN := wwhd-editor
+BIN     := windwaker-hd-editor-cli
+GUI_BIN := windwaker-hd-editor
 HEADERS := src/save_format.h
 
 # Dear ImGui is a git submodule in imgui/, compiled into the GUI, per the upstream guide.
