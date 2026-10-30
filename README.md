@@ -53,8 +53,6 @@ make                          # builds the CLI, plus the GUI when GLFW/X11 are a
 | `make test` | parity + behaviour tests |
 | `make clean` | remove build output |
 
-Dear ImGui is a git submodule compiled straight into the GUI binary, per the upstream recommendation.
-
 # Using the GUI editor
 1. Start `windwaker-hd-editor` (double-click the AppImage, or run the binary; you can also pass a save file as the first argument to open it immediately).
 2. Click **Browse...**, pick your `cking.sav`, and it loads right away. The status line turns green with `Loaded ...` or red with the reason it was rejected.
