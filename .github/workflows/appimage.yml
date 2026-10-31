@@ -69,21 +69,16 @@ jobs:
             -e GITHUB_REPOSITORY="${{ github.repository }}" \
             ${{ matrix.image }} \
             /bin/sh -c "sh appimage/get-dependencies.sh && git config --global --add safe.directory /build && git submodule update --init && \
-                        make && sh appimage/make-appimage.sh ${{ matrix.arch }} ${{ github.event.inputs.tag }} && \
+                        make linux && sh appimage/make-appimage.sh ${{ matrix.arch }} ${{ github.event.inputs.tag }} && \
                         make linux-static && zip -j dist/windwaker-hd-editor-linux-${{ matrix.arch }}.zip \
                         windwaker-hd-editor windwaker-hd-editor-cli README.md LICENSE"
+      # dist holds the AppImages, the .zsync files and the zipped Linux binaries; the release job
+      # picks the files out by extension, so one artifact per arch is enough.
       - name: Upload artifact
         if: ${{ !matrix.qemu || github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: AppImage-${{ matrix.arch }}
-          path: dist
-      # The zipped Linux binaries (`make linux-static`); the release job collects them by pattern.
-      - name: Upload Linux zip
-        if: ${{ !matrix.qemu || github.event_name != 'pull_request' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: Linux-zip-${{ matrix.arch }}
           path: dist
 
   windows:
@@ -124,10 +119,6 @@ jobs:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: Windows-zip
-          merge-multiple: true
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          pattern: Linux-zip-*
           merge-multiple: true
       - name: Attach the release files
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2

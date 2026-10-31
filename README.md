@@ -13,7 +13,7 @@ You must also legally own a Wii U, along with a legally owned copy of the game.
 - **Correct "obtained" masks.** Removing or downgrading an item also lowers the owned-variant mask, otherwise the game silently restores the better item on the next in-game save.
 - **Automatic checksums.** The edited quest log is re-summed on the fly; one button re-sums all three if you are repairing a file.
 - **Amount clamping** - current hearts never exceed max hearts, rupees never exceed the wallet capacity, etc.
-- **Ships as an AppImage** for universal compatibility (AnyLinux AppImage build), plus a **Windows .exe**.
+- **Ships as an AppImage** for universal compatibility (AnyLinux AppImage build), plus **zipped Linux binaries** and a **Windows .exe**.
 - **Command line version** also available for Linux/Windows.
 
 <p align="center">
@@ -33,6 +33,7 @@ Each of the three slots can be modified:
 # Getting the editor
 ## Download
 Grab the latest AppImage from the [releases page](https://github.com/vishnu350/windwaker-hd-editor/releases/latest), make the binary executable and double click to run it.
+Releases also carry `windwaker-hd-editor-linux-<arch>.zip` (plain binaries, no AppImage runtime) and `windwaker-hd-editor-windows-x86_64.zip`. The Linux zip needs the usual X11 runtime libraries and the glibc of the Arch Linux build container.
 
 ## Build from source
 Dependencies: a C99/C++11 compiler, GLFW and X11 headers.
@@ -41,17 +42,15 @@ Dependencies: a C99/C++11 compiler, GLFW and X11 headers.
 sudo apt-get install build-essential libglfw3-dev libx11-dev   # Debian/Ubuntu
 git clone --recursive https://github.com/vishnu350/windwaker-hd-editor
 cd windwaker-hd-editor        # or: git submodule update --init
-make                          # builds the CLI, plus the GUI when GLFW/X11 are available
+make                          # = make linux: the CLI and the GUI
 ```
 
 | Target | Result |
 | --- | --- |
-| `make` | `windwaker-hd-editor-cli` and `windwaker-hd-editor` (GUI, if GLFW is installed) |
-| `make gui` | GUI only, with an install hint if the libraries are missing |
-| `make info` | print the three quest logs (needs a sample `cking.sav`) |
-| `make help` | CLI usage text |
+| `make`, `make linux` | `windwaker-hd-editor-cli` and `windwaker-hd-editor` (GUI) |
 | `make test` | parity + behaviour tests |
 | `make windows` | Windows `windwaker-hd-editor.exe` + CLI, cross-compiled with MinGW-w64 |
+| `make linux-static` | Linux CLI + GUI with the GLFW submodule and the C++ runtime linked in, X11 dynamic (needs `libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev` instead of `libglfw3-dev`) |
 | `make clean` | remove build output |
 
 # Using the GUI editor
