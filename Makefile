@@ -44,8 +44,8 @@ GLFW_OBJS    := $(addprefix $(OBJ_DIR)/glfw/,$(addsuffix .o,$(GLFW_SRCS)))
 GLFW_CFLAGS  := -O2 -Wall -D_GLFW_WIN32 -D_CRT_SECURE_NO_WARNINGS \
                 -I$(GLFW_DIR)/include -I$(GLFW_DIR)/src
 
-# Dear ImGui is a git submodule in imgui/, compiled into the GUI, per the upstream guide.
-IMGUI_DIR    := imgui
+# Dear ImGui is a git submodule in libs/imgui, compiled into the GUI, per the upstream guide.
+IMGUI_DIR    := libs/imgui
 IMGUI_CXX    := $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp \
                 $(IMGUI_DIR)/imgui_widgets.cpp $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp \
                 $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
