@@ -10,7 +10,8 @@
 #include <string>
 #include <vector>
 
-// POSIX only, like open_memstream() below: the file browser lists directories with dirent/stat.
+// The file browser lists directories with dirent/stat. MinGW-w64 ships these (plus getcwd and
+// strcasecmp), so only open_memstream() needs a Windows fallback - see draw_changes().
 #include <dirent.h>
 #include <strings.h>  // strcasecmp for the case-insensitive listing
 #include <sys/stat.h>
@@ -33,6 +34,13 @@
 #include <X11/Xatom.h>      // XA_RESOURCE_MANAGER
 #include <X11/Xresource.h>  // Xft.dpi lookup: the Xrm* resource-database functions
 #define WWHD_HAVE_X11 1
+#endif
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX  // <algorithm> needs std::min/std::max, not the windows.h macros
+#define NOMINMAX
+#endif
+#include <windows.h>  // GetFullPathNameA, GetLogicalDrives, the DPI probe
 #endif
 
 namespace {
@@ -192,8 +200,28 @@ float xft_scale()
 #endif
 }
 
-// Scaling factor to start with: WWHD_GUI_SCALE wins, then the Qt/GDK variables, then Xft.dpi, and
-// only the detected value is capped at k_auto_scale_max - an explicit request is taken as given.
+// Windows equivalent of Xft.dpi: the system DPI over the 96 dpi baseline. GLFW already made the
+// process DPI aware, so without this the editor is a small, bitmap-stretched window on 125%+.
+float windows_dpi_scale()
+{
+#if defined(_WIN32)
+    HDC dc = GetDC(NULL);
+
+    if (dc == NULL) {
+        return 0.0f;
+    }
+    float dpi = (float)GetDeviceCaps(dc, LOGPIXELSX);
+
+    ReleaseDC(NULL, dc);
+    return dpi > 0.0f ? dpi / 96.0f : 0.0f;
+#else
+    return 0.0f;
+#endif
+}
+
+// Scaling factor to start with: WWHD_GUI_SCALE wins, then the Qt/GDK variables, then the desktop
+// scale (Xft.dpi or the Windows system DPI), and only the detected value is capped at
+// k_auto_scale_max - an explicit request is taken as given.
 float detect_ui_scale()
 {
     static const char *const k_env_names[] = {"WWHD_GUI_SCALE", "QT_SCALE_FACTOR", "GDK_SCALE"};
@@ -210,11 +238,16 @@ float detect_ui_scale()
 
     if (scale <= 0.0f) {
         scale = xft_scale();
-        if (scale > k_auto_scale_max) {
-            scale = k_auto_scale_max;
-        }
         if (scale > 0.0f) {
             source = "Xft.dpi";
+        } else {
+            scale = windows_dpi_scale();
+            if (scale > 0.0f) {
+                source = "system DPI";
+            }
+        }
+        if (scale > k_auto_scale_max) {
+            scale = k_auto_scale_max;
         }
     }
     if (scale < 1.0f) {
@@ -252,12 +285,16 @@ void apply_ui_scale(float scale)
     g_ui_scale = scale;
 }
 
-#if defined(GLFW_PLATFORM_X11)
+#if defined(GLFW_PLATFORM)
 // The front end GLFW actually connected to; glfwGetPlatform only exists from GLFW 3.4.
 const char *glfw_platform_name()
 {
     switch (glfwGetPlatform())
     {
+#if defined(GLFW_PLATFORM_WIN32)
+        case GLFW_PLATFORM_WIN32:
+            return "win32";
+#endif
         case GLFW_PLATFORM_WAYLAND:
             return "wayland";
         case GLFW_PLATFORM_X11:
@@ -480,44 +517,114 @@ struct FileBrowser {
 
 FileBrowser g_browser;
 
+// Path rules: POSIX has one root and "/" only; Windows accepts both separators, normalises to
+// "\" and has one root per drive letter instead of a single tree.
+#if defined(_WIN32)
+const char k_path_sep = '\\';
+// Pseudo folder listing the drive letters: "Up" from a drive root lands here, the only way to
+// leave the home drive without typing a path.
+const char k_drives_dir[] = "Drives:";
+#else
+const char k_path_sep = '/';
+#endif
+
+bool is_path_sep(char c)
+{
+#if defined(_WIN32)
+    return c == '/' || c == '\\';
+#else
+    return c == '/';
+#endif
+}
+
+const char *path_find_sep(const char *path)
+{
+    const char *last = NULL;
+
+    for (const char *p = path; *p != '\0'; p++) {
+        if (is_path_sep(*p)) {
+            last = p;
+        }
+    }
+    return last;
+}
+
 std::string path_directory(const char *path)
 {
-    const char *slash = strrchr(path, '/');
+    const char *slash = path_find_sep(path);
 
     if (slash == NULL) {
         return std::string(".");
     }
     if (slash == path) {
-        return std::string("/");  // "/foo" lives in "/"
+        return std::string(1, k_path_sep);  // "/foo" lives in "/"
     }
     return std::string(path, (size_t)(slash - path));
 }
 
 std::string path_basename(const char *path)
 {
-    const char *slash = strrchr(path, '/');
+    const char *slash = path_find_sep(path);
 
     return std::string(slash != NULL ? slash + 1 : path);
 }
 
 std::string path_join(const std::string &dir, const std::string &name)
 {
-    if (dir.empty() || dir == "/") {
-        return dir + name;
+    if (dir.empty() || is_path_sep(dir[dir.size() - 1])) {
+        return dir + name;  // "/" or "C:\" already ends in a separator
     }
-    return dir + "/" + name;
+    return dir + k_path_sep + name;
 }
 
-// Absolute form of a path that may not exist yet: realpath where it resolves, cwd otherwise.
+bool path_is_absolute(const std::string &path)
+{
+#if defined(_WIN32)
+    return (path.size() >= 3 && path[1] == ':' && is_path_sep(path[2]))       // "C:\Users"
+           || (path.size() >= 2 && is_path_sep(path[0]) && is_path_sep(path[1]));  // "\\server"
+#else
+    return !path.empty() && path[0] == '/';
+#endif
+}
+
+// True when no parent folder exists above this one.
+bool path_is_root(const std::string &path)
+{
+#if defined(_WIN32)
+    return (path.size() == 2 && path[1] == ':')                                // "C:"
+           || (path.size() == 3 && path[1] == ':' && is_path_sep(path[2]));    // "C:\"
+#else
+    return path == "/";
+#endif
+}
+
+#if defined(_WIN32)
+bool path_is_drives(const std::string &path)
+{
+    return path == k_drives_dir;
+}
+#endif
+
+// Absolute form of a path that may not exist yet: the OS normaliser where it resolves, cwd otherwise.
 std::string path_absolute(const std::string &path)
 {
     char resolved[4096];
     char cwd[4096];
 
+#if defined(_WIN32)
+    // GetFullPathNameA resolves against the current directory without touching the disk, so a
+    // save-as target that does not exist yet still comes back absolute. mingw has no realpath.
+    DWORD length = GetFullPathNameA(path.c_str(), (DWORD)sizeof(resolved), resolved, NULL);
+
+    if (length > 0 && length < sizeof(resolved)) {
+        return std::string(resolved, (size_t)length);
+    }
+#else
     if (realpath(path.c_str(), resolved) != NULL) {
         return std::string(resolved);
     }
-    if (!path.empty() && path[0] == '/') {
+#endif
+    if (path_is_absolute(path)) {
         return path;
     }
     if (getcwd(cwd, sizeof(cwd)) == NULL) {
@@ -546,12 +653,28 @@ void browser_scan()
     g_browser.entries.clear();
     g_browser.selected = -1;
 
+#if defined(_WIN32)
+    if (path_is_drives(g_browser.dir)) {
+        DWORD mask = GetLogicalDrives();
+
+        for (int i = 0; i < 26; i++) {
+            if ((mask & (1UL << i)) != 0) {
+                FileEntry drive;
+
+                drive.name = std::string(1, (char)('A' + i)) + ":";
+                drive.is_dir = true;
+                g_browser.entries.push_back(drive);
+            }
+        }
+        return;
+    }
+#endif
     DIR *handle = opendir(g_browser.dir);
     if (handle == NULL) {
         set_status(true, "Cannot open directory %s.", g_browser.dir);
         return;
     }
-    if (strcmp(g_browser.dir, "/") != 0) {
+    if (!path_is_root(g_browser.dir)) {
         FileEntry parent;
 
         parent.name = "..";
@@ -596,21 +719,67 @@ void browser_scan()
 
 void browser_goto(const std::string &path)
 {
+#if defined(_WIN32)
+    // The drive list is not a folder on disk, so it must not go through the path normaliser.
+    std::string full = path_is_drives(path) ? path : path_absolute(path);
+#else
     std::string full = path_absolute(path);
+#endif
 
     snprintf(g_browser.dir, sizeof(g_browser.dir), "%s", full.c_str());
     browser_scan();
+}
+
+// Enters a listed folder; the drive entries of the pseudo drive list expand to "C:\" style roots.
+void browser_enter(const std::string &name)
+{
+#if defined(_WIN32)
+    if (path_is_drives(g_browser.dir)) {
+        browser_goto(name + k_path_sep);
+        return;
+    }
+#endif
+    browser_goto(path_join(g_browser.dir, name));
+}
+
+// One folder up; the drive list is the top of the tree on Windows, "/" everywhere else.
+void browser_up()
+{
+#if defined(_WIN32)
+    if (path_is_drives(g_browser.dir)) {
+        return;
+    }
+    if (path_is_root(g_browser.dir)) {
+        browser_goto(k_drives_dir);
+        return;
+    }
+#endif
+    browser_goto(path_directory(g_browser.dir));
+}
+
+// Where the dialog starts: $HOME (or %USERPROFILE% on Windows), else the top of the tree.
+const char *home_dir()
+{
+    const char *home = getenv("HOME");
+
+#if defined(_WIN32)
+    if (home == NULL || home[0] == '\0') {
+        home = getenv("USERPROFILE");
+    }
+    return (home != NULL && home[0] != '\0') ? home : k_drives_dir;
+#else
+    return (home != NULL && home[0] != '\0') ? home : "/";
+#endif
 }
 
 // Starts in the home directory, which is where extracted saves usually land; only an absolute path
 // already in the field moves the dialog elsewhere. A trailing slash means a directory.
 void browser_open(bool for_load)
 {
-    const char *home = getenv("HOME");
     std::string target = (for_load ? g_path : g_out);
     std::string dir;
 
-    while (target.size() > 1 && target[target.size() - 1] == '/') {
+    while (target.size() > 1 && is_path_sep(target[target.size() - 1])) {
         target.pop_back();
     }
     g_browser.for_load = for_load;
@@ -618,11 +787,11 @@ void browser_open(bool for_load)
     g_browser.name[0] = '\0';
     if (path_is_dir(target)) {
         dir = target;
-    } else if (!target.empty() && target[0] == '/' && path_exists(path_directory(target.c_str()))) {
+    } else if (path_is_absolute(target) && path_exists(path_directory(target.c_str()))) {
         dir = path_directory(target.c_str());
         snprintf(g_browser.name, sizeof(g_browser.name), "%s", path_basename(target.c_str()).c_str());
     } else {
-        dir = (home != NULL && home[0] != '\0') ? std::string(home) : std::string("/");
+        dir = home_dir();
     }
     browser_goto(dir);
     ImGui::OpenPopup("Browse for save file##filebrowser");
@@ -681,13 +850,11 @@ void browser_draw()
     }
     ImGui::SameLine();
     if (ImGui::Button("Up")) {
-        browser_goto(path_directory(g_browser.dir));
+        browser_up();
     }
     ImGui::SameLine();
     if (ImGui::Button("Home")) {
-        const char *home = getenv("HOME");
-
-        browser_goto((home != NULL && home[0] != '\0') ? home : "/");
+        browser_goto(home_dir());
     }
     if (ImGui::Checkbox("Show hidden files", &g_browser.show_hidden)) {
         browser_scan();
@@ -717,7 +884,7 @@ void browser_draw()
         }
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             if (entry.is_dir) {
-                browser_goto(path_join(g_browser.dir, entry.name));
+                browser_enter(entry.name);
             } else {
                 snprintf(g_browser.name, sizeof(g_browser.name), "%s", entry.name.c_str());
                 browser_accept();
@@ -836,11 +1003,33 @@ void draw_changes()
 {
     char *text = NULL;
     size_t length = 0;
+#if defined(_WIN32)
+    // mingw's CRT has no open_memstream, so the diff goes to a temp file and is read back.
+    FILE *stream = tmpfile();
+
+    if (stream != NULL) {
+        ww_print_diff(stream, g_original, g_preview);
+        fflush(stream);
+        length = (size_t)ftell(stream);
+        text = (char *)malloc(length + 1);
+        if (text != NULL) {
+            rewind(stream);
+            if (fread(text, 1, length, stream) != length) {
+                length = 0;
+            }
+        }
+        fclose(stream);
+    }
+#else
     FILE *stream = open_memstream(&text, &length);
 
-    if (stream) {
+    if (stream != NULL) {
         ww_print_diff(stream, g_original, g_preview);
-        fclose(stream);
+        fclose(stream);  // the memstream buffer is only valid once the stream is closed
+    }
+#endif
+
+    if (text != NULL) {
         ImGui::TextUnformatted(text, text + length);
         free(text);
     }
@@ -974,7 +1163,11 @@ int main(int argc, char **argv)
     // A Wayland surface has no client-side decorations, so GLFW's Wayland front end comes up
     // without a title bar. Ask for X11/XWayland, where the window manager decorates the window;
     // GLFW picks Wayland by itself whenever XDG_SESSION_TYPE=wayland, and it only honours this
-    // hint through glfwInitHint (there is no GLFW_PLATFORM environment variable).
+    // hint through glfwInitHint (there is no GLFW_PLATFORM environment variable). On Windows there
+    // is nothing to choose: the win32 front end is the only one, and it is always decorated.
+#if defined(_WIN32)
+    const char *platform = "win32";
+#else
     const char *platform = "x11";
 #if defined(GLFW_PLATFORM) && defined(GLFW_PLATFORM_X11)
     if (strcmp(env_or_dash("WWHD_GUI_PLATFORM"), "wayland") == 0) {
@@ -986,9 +1179,10 @@ int main(int argc, char **argv)
 #else
     platform = "any";  // GLFW 3.3 has no Wayland front end on Linux
 #endif
+#endif
 
     bool ok = glfwInit();
-#if defined(GLFW_PLATFORM) && defined(GLFW_PLATFORM_X11)
+#if !defined(_WIN32) && defined(GLFW_PLATFORM) && defined(GLFW_PLATFORM_X11)
     // No X11 front end at all (no XWayland): fall back to GLFW's own pick so the app still starts.
     if (!ok && strcmp(platform, "x11") == 0) {
         glfwInitHint(GLFW_PLATFORM, GLFW_ANY_PLATFORM);
@@ -997,14 +1191,14 @@ int main(int argc, char **argv)
     }
 #endif
     if (!ok) {
-        fprintf(stderr, "Could not initialise GLFW; an X11 or Wayland display is required.\n");
+        fprintf(stderr, "Could not initialise GLFW.\n");
         return 1;
     }
     // Diagnostics: the AppImage packaging is judged by these two lines.
     fprintf(stderr, "GLFW %s (requested %s; XDG_SESSION_TYPE=%s DISPLAY=%s WAYLAND_DISPLAY=%s)\n",
             glfwGetVersionString(), platform, env_or_dash("XDG_SESSION_TYPE"),
             env_or_dash("DISPLAY"), env_or_dash("WAYLAND_DISPLAY"));
-#if defined(GLFW_PLATFORM_X11)
+#if defined(GLFW_PLATFORM)
     fprintf(stderr, "GLFW chose %s\n", glfw_platform_name());
 #endif
     // Needs the connected display for Xft.dpi, so it runs after glfwInit and before the window.
