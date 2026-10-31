@@ -76,17 +76,44 @@ jobs:
           name: AppImage-${{ matrix.arch }}
           path: dist
 
+  windows:
+    name: "Build Windows .exe"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive   # libs/imgui and libs/glfw are both compiled in
+      - name: Install the MinGW-w64 cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 zip
+      - name: Build
+        run: make windows
+      - name: Package
+        run: |
+          mkdir -p dist
+          zip -j dist/windwaker-hd-editor-windows-x86_64.zip \
+            windwaker-hd-editor.exe windwaker-hd-editor-cli.exe README.md LICENSE
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: Windows-zip
+          path: dist
+
   release:
     # Triggered by a manually published GitHub release (ivan-hc pushes a new
     # version, writing the release notes himself): build from that tag and
-    # attach the AppImages to that very release.
-    needs: [build]
+    # attach the AppImages and the Windows zip to that very release.
+    needs: [build, windows]
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           pattern: AppImage-*
+          merge-multiple: true
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: Windows-zip
           merge-multiple: true
       - name: Attach AppImages to the release
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
@@ -97,4 +124,5 @@ jobs:
           files: |
             *.AppImage
             *.AppImage.zsync
+            *.zip
 
