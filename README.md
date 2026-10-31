@@ -13,8 +13,8 @@ You must also legally own a Wii U, along with a legally owned copy of the game.
 - **Correct "obtained" masks.** Removing or downgrading an item also lowers the owned-variant mask, otherwise the game silently restores the better item on the next in-game save.
 - **Automatic checksums.** The edited quest log is re-summed on the fly; one button re-sums all three if you are repairing a file.
 - **Amount clamping** - current hearts never exceed max hearts, rupees never exceed the wallet capacity, etc.
-- **Ships as an AppImage** for universal compatibility (AnyLinux AppImage build).
-- **Command line version** also available.
+- **Ships as an AppImage** for universal compatibility (AnyLinux AppImage build), plus a **Windows .exe**.
+- **Command line version** also available for Linux/Windows.
 
 <p align="center">
 <img alt="wwedit" src="https://github.com/user-attachments/assets/1c28a4de-9109-4baa-a389-5e5bb5a2b8bc" width="90%" />
@@ -51,6 +51,7 @@ make                          # builds the CLI, plus the GUI when GLFW/X11 are a
 | `make info` | print the three quest logs (needs a sample `cking.sav`) |
 | `make help` | CLI usage text |
 | `make test` | parity + behaviour tests |
+| `make windows` | Windows `windwaker-hd-editor.exe` + CLI, cross-compiled with MinGW-w64 |
 | `make clean` | remove build output |
 
 # Using the GUI editor
