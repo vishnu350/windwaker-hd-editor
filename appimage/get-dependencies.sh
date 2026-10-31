@@ -12,33 +12,13 @@ pacman -Syu --noconfirm
 
 echo "Installing package dependencies..."
 echo "---------------------------------------------------------------"
-# "AM" is a shell script, so no GUI/mesa/etc libraries need to be bundled
-# into the AppImage. We install the tools that AM may call (and that are
-# missing on some distros) so that quick-sharun can bundle them - together
-# with their libraries and glibc - into the AppImage.
-#
 # The required set is present on every architecture (Arch Linux ports).
 pacman -S --noconfirm --needed \
-	base-devel \
-	glfw-x11 \
-	mesa \
-	ca-certificates \
-	curl \
-	git \
-	jq \
-	patchelf \
-	tar \
-	zip \
-	unzip \
-	wget \
-	xz
+    base-devel ca-certificates curl git jq patchelf tar zip unzip wget xz \
+    glfw-x11 libx11 libxext libxcursor libxi libxinerama libxrandr mesa
 
-# Optional packages may not exist on every architecture port. If they are
-# missing here, quick-sharun (see make-appimage.sh) warns and skips them,
-# and AM falls back to its built-in mechanism for those commands.
-# xorg-server-xvfb is only used by quick-sharun's strace mode to provide a
-# virtual display (our CLI tools do not need one, so it is just a warning
-# if unavailable).
+# Optional packages may not exist on every architecture port.
+# xorg-server-xvfb is only used by quick-sharun's strace mode.
 pacman -S --noconfirm --needed 7zip file xorg-server-xvfb \
 	|| echo "  WARNING: some optional packages are not available on $ARCH"
 
