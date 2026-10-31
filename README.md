@@ -24,7 +24,7 @@ You must also legally own a Wii U, along with a legally owned copy of the game.
 Each of the three slots can be modified:
 - **Name** (1-8 characters, written to the display name and the three internal copies).
 - **Max hearts / current hearts**, in quarter-heart steps up to 20.
-- **Rupees** and **wallet capacity** (200, 1000 or 5000).
+- **Rupees** and **wallet capacity** (500, 1000 or 5000).
 - **Max magic meter** (0, 16 or 32) and **current magic**.
 - **Arrows, max arrows, bombs, max bombs**.
 - **Equipment:** sword (Hero's / Master Sword powerless, half, fully restored), shield (Hero's / Mirror), Power Bracelets.

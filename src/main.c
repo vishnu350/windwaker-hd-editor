@@ -27,7 +27,7 @@ static void usage(const char *argv0)
     printf("      --hearts N          maximum heart containers, e.g. 11.75\n");
     printf("      --health N          current hearts\n");
     printf("      --rupees N          rupee count, clamped to the wallet capacity\n");
-    printf("      --wallet N          wallet capacity: 200, 1000 or 5000\n");
+    printf("      --wallet N          wallet capacity: 500, 1000 or 5000\n");
     printf("      --magic-max N       maximum magic meter (0, 16 or 32)\n");
     printf("      --magic N           current magic\n");
     printf("      --arrows N          arrows held\n");
@@ -104,7 +104,7 @@ static int parse_wallet(const char *text, int *level)
     if (parse_int(text, &capacity) != 0) {
         return -1;
     }
-    if (capacity == 200) {
+    if (capacity == 500) {
         *level = 0;
     } else if (capacity == 1000) {
         *level = 1;
@@ -247,7 +247,7 @@ int main(int argc, char **argv)
         } else if (!strcmp(arg, "--wallet")) {
             NEED_VALUE();
             if (parse_wallet(next, &o.edits.wallet_level) != 0) {
-                fprintf(stderr, "Wallet capacity must be 200, 1000 or 5000.\n");
+                fprintf(stderr, "Wallet capacity must be 500, 1000 or 5000.\n");
                 return 1;
             }
             o.edits.present |= WW_EDIT_WALLET;

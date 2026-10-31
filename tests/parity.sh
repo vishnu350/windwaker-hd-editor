@@ -64,7 +64,7 @@ if command -v node >/dev/null 2>&1; then
 
     check "dependent values normalize" \
         '{"slot":0,"edits":{"maxHearts":3,"currentHearts":20,"walletLevel":0,"rupees":5000,"maxMagic":16,"currentMagic":32,"maxArrows":30,"arrows":99,"maxBombs":30,"bombs":99}}' \
-        --hearts 3 --health 20 --wallet 200 --rupees 5000 --magic-max 16 --magic 32 \
+        --hearts 3 --health 20 --wallet 500 --rupees 5000 --magic-max 16 --magic 32 \
         --arrows-max 30 --arrows 99 --bombs-max 30 --bombs 99
 
     check "repair all checksums" \
@@ -89,6 +89,16 @@ if command -v node >/dev/null 2>&1; then
             echo "ok       reports unknown inventory values"
         else
             echo "FAIL     unknown inventory value not reported"
+            fail=1
+        fi
+
+        # the HD base wallet (level 0) holds 500 rupees, not the GameCube's 200
+        cp "$SAVE" "$TMP/wallet.sav"
+        python3 -c 'import sys;p=sys.argv[1];b=bytearray(open(p,"rb").read());b[0x12]=0;b[4]=1;b[5]=0xF4;open(p,"wb").write(b)' "$TMP/wallet.sav"
+        if "$BIN" --info "$TMP/wallet.sav" | grep -q "500 / 500"; then
+            echo "ok       base wallet holds 500 rupees"
+        else
+            echo "FAIL     wrong base wallet capacity: $("$BIN" --info "$TMP/wallet.sav" | grep Rupees)"
             fail=1
         fi
     fi

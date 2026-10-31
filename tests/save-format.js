@@ -265,8 +265,9 @@ export function diffSave(original, modified) {
   return changes;
 }
 
+// HD wallet tiers; the base wallet holds 500 (GameCube original: 200).
 export function walletCapacity(level) {
-  return [200, 1000, 5000][level] ?? 200;
+  return [500, 1000, 5000][level] ?? 500;
 }
 
 function writePlayerName(bytes, slotIndex, value) {

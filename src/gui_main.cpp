@@ -963,7 +963,7 @@ void draw_fields(int slot)
 
     ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::InputInt("Rupees", &u.rupees);
-    const char *wallets[3] = {"200", "1000", "5000"};
+    const char *wallets[3] = {"500", "1000", "5000"};
     ImGui::SetNextItemWidth(-label_gap);  // leave room for the label
     ImGui::Combo("Wallet", &u.wallet_level, wallets, 3);
 

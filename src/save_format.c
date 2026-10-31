@@ -114,10 +114,11 @@ static void fail(char *err, size_t size, const char *message)
     }
 }
 
+/* HD wallet tiers: the base wallet holds 500 rupees (the GameCube original used 200). */
 int ww_wallet_capacity(int level)
 {
-    static const int capacities[3] = {200, 1000, 5000};
-    return (level >= 0 && level <= 2) ? capacities[level] : 200;
+    static const int capacities[3] = {500, 1000, 5000};
+    return (level >= 0 && level <= 2) ? capacities[level] : 500;
 }
 
 void ww_default_out_path(const char *in_path, char *buf, size_t size)
