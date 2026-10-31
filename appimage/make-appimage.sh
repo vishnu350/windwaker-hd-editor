@@ -32,8 +32,8 @@ sed -i '3i\USE_HOST_XDG_CACHE_HOME=1' "$APPDIR"/AppRun.lib
 quick-sharun --make-appimage
 
 # Rename files
-mv -f dist/*-"$ARCH".AppImage dist/windwaker-hd-editor-"$ARCH".AppImage
-mv -f dist/*-"$ARCH".AppImage.zsync dist/windwaker-hd-editor-"$ARCH".AppImage.zsync
+mv -f dist/*-"$ARCH".AppImage dist/windwaker-hd-editor-linux-"$ARCH".AppImage
+mv -f dist/*-"$ARCH".AppImage.zsync dist/windwaker-hd-editor-linux-"$ARCH".AppImage.zsync
 
 # Test the app for 12 seconds
 quick-sharun --simple-test dist/*.AppImage
