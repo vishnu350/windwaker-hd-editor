@@ -70,7 +70,7 @@ jobs:
             ${{ matrix.image }} \
             /bin/sh -c "sh appimage/get-dependencies.sh && git config --global --add safe.directory /build && git submodule update --init && \
                         make linux && sh appimage/make-appimage.sh ${{ matrix.arch }} ${{ github.event.inputs.tag }} && \
-                        make linux-static && zip -j dist/windwaker-hd-editor-linux-${{ matrix.arch }}.zip \
+                        make linux-static && zip -j dist/windwaker-hd-editor-linux-static-${{ matrix.arch }}.zip \
                         windwaker-hd-editor windwaker-hd-editor-cli README.md LICENSE"
       # dist holds the AppImages, the .zsync files and the zipped Linux binaries; the release job
       # picks the files out by extension, so one artifact per arch is enough.
