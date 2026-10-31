@@ -28,6 +28,7 @@ pacman -S --noconfirm --needed \
 	jq \
 	patchelf \
 	tar \
+	zip \
 	unzip \
 	wget \
 	xz

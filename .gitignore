@@ -1,6 +1,7 @@
 windwaker-hd-editor-cli
 windwaker-hd-editor
 build/
+build-static/
 build-*mingw*
 *.exe
 *-modified.sav
