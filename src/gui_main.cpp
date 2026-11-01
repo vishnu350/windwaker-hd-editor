@@ -54,7 +54,6 @@ const float k_window_height = 760.0f;
 const float k_ui_scales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f };
 const char *k_ui_scale_labels[] = { "100%", "125%", "150%", "175%", "200%", "250%" };
 const int k_ui_scale_count = (int)(sizeof(k_ui_scales) / sizeof(k_ui_scales[0]));
-const float k_auto_scale_max = 1.5f;  // detected scaling is capped; the combo and env are not
 
 // Combo options for one field; unknown stored bytes get a "keep" entry so they survive.
 struct Choices {
@@ -219,9 +218,7 @@ float windows_dpi_scale()
 #endif
 }
 
-// Scaling factor to start with: WWHD_GUI_SCALE wins, then the Qt/GDK variables, then the desktop
-// scale (Xft.dpi or the Windows system DPI), and only the detected value is capped at
-// k_auto_scale_max - an explicit request is taken as given.
+// Scaling factor to start with: WWHD_GUI_SCALE wins, then the Qt/GDK variables, then the desktop scale
 float detect_ui_scale()
 {
     static const char *const k_env_names[] = {"WWHD_GUI_SCALE", "QT_SCALE_FACTOR", "GDK_SCALE"};
@@ -245,9 +242,6 @@ float detect_ui_scale()
             if (scale > 0.0f) {
                 source = "system DPI";
             }
-        }
-        if (scale > k_auto_scale_max) {
-            scale = k_auto_scale_max;
         }
     }
     if (scale < 1.0f) {
