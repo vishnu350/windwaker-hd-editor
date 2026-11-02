@@ -32,7 +32,7 @@ Each of the three slots can be modified:
 
 # Getting the editor
 ## Download
-Grab the latest AppImage from the [releases page](https://github.com/vishnu350/windwaker-hd-editor/releases/latest), make the binary executable and double click to run it.
+Grab the latest Windows .exe or Linux AppImage from the [releases page](https://github.com/vishnu350/windwaker-hd-editor/releases/latest), make sure the binary is executable, and then double click to run it.
 
 The Linux static binaries will require a new(ish) Linux OS with modern glibc to run properly. If it doesn't work for you, please use the AppImage version instead, it should work on any Linux machine without any prerequisites.
 
