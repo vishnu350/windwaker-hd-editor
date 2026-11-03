@@ -34,7 +34,7 @@ Each of the three slots can be modified:
 ## Download
 For Windows, grab the latest Windows release [here](https://github.com/vishnu350/windwaker-hd-editor/releases/latest/download/windwaker-hd-editor-windows-x86_64.zip).
 
-For Linux, the recommended AppImage installation method is through [AM/Appman](https://github.com/ivan-hc/AM): `am -i windwaker-hd-editor`
+For Linux, install via [AM/Appman](https://github.com/ivan-hc/AM) AppImage package manager: `am -i windwaker-hd-editor`
 
 Else, head to the [releases page](https://github.com/vishnu350/windwaker-hd-editor/releases/latest) and directly download the Linux [AppImage](https://github.com/vishnu350/windwaker-hd-editor/releases/latest/download/windwaker-hd-editor-linux-x86_64.AppImage) or [static binaries](https://github.com/vishnu350/windwaker-hd-editor/releases/latest/download/windwaker-hd-editor-linux-static-x86_64.zip), ARM binaries are also provided. Make sure the binary is executable, and then double click to run it.
 
