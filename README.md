@@ -13,7 +13,7 @@ You must also legally own a Wii U, along with a legally owned copy of the game.
 - **Correct "obtained" masks.** Removing or downgrading an item also lowers the owned-variant mask, otherwise the game silently restores the better item on the next in-game save.
 - **Automatic checksums.** The edited quest log is re-summed on the fly; one button re-sums all three if you are repairing a file.
 - **Amount clamping.** Current hearts never exceed max hearts, rupees never exceed the wallet capacity, etc.
-- **Ships as an AppImage** for universal compatibility (AnyLinux AppImage build), **zipped Linux binaries** and a **Windows .exe**.
+- **Ships as an [AppImage](https://github.com/vishnu350/windwaker-hd-editor/releases/latest/download/windwaker-hd-editor-linux-x86_64.AppImage)** for universal compatibility (AnyLinux AppImage build), **[zipped](https://github.com/vishnu350/windwaker-hd-editor/releases/latest/download/windwaker-hd-editor-linux-static-x86_64.zip) Linux binaries** and a **Windows [.exe](https://github.com/vishnu350/windwaker-hd-editor/releases/latest/download/windwaker-hd-editor-windows-x86_64.zip)**.
 - **Plain command line version** also available for Linux/Windows.
 
 <p align="center">
