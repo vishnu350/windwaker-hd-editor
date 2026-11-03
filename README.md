@@ -48,10 +48,10 @@ make                          # = make linux: the CLI and the GUI
 
 | Target | Result |
 | --- | --- |
-| `make`, `make linux` | `windwaker-hd-editor-cli` and `windwaker-hd-editor` (GUI) |
-| `make test` | parity + behavior tests |
 | `make windows` | Windows `windwaker-hd-editor.exe` + CLI, cross-compiled with MinGW-w64 |
+| `make`, `make linux` | Linux `windwaker-hd-editor` GUI + CLI |
 | `make linux-static` | Linux CLI + GUI with the GLFW submodule and the C++ runtime linked in, X11 dynamic (needs `libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev` instead of `libglfw3-dev`) |
+| `make test` | parity + behavior tests |
 | `make clean` | remove build output |
 
 # Using the GUI editor
